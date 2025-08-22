@@ -1,0 +1,58 @@
+# -----------------------------
+# Laravel / PHP
+# -----------------------------
+projective-app/vendor
+projective-app/node_modules
+projective-app/public/hot
+projective-app/public/storage
+projective-app/storage/*.key
+projective-app/.env
+projective-app/.phpunit.result.cache
+
+# Laravel IDE Helper / debug files
+projective-app/_ide_helper.php
+projective-app/_ide_helper_models.php
+projective-app/.phpstorm.meta.php
+
+# Composer PHAR
+projective-app/composer.phar
+
+# -----------------------------
+# Node / React / Vite
+# -----------------------------
+projective-app/node_modules/
+projective-app/npm-debug.log*
+projective-app/yarn-debug.log*
+projective-app/yarn-error.log*
+projective-app/pnpm-debug.log*
+projective-app/vite.config.js.lock
+
+# Vite build output
+projective-app/public/build/
+
+# Tailwind cache
+projective-app/.tailwind.cache
+
+# Optional: local env overrides
+projective-app/.env.local
+projective-app/.env.*.local
+
+# -----------------------------
+# OS / IDE files
+# -----------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.log
+
+# -----------------------------
+# Other
+# -----------------------------
+projective-app/storage/*.log
+projective-app/storage/framework/cache/data
+projective-app/storage/framework/sessions
+projective-app/storage/framework/views
+projective-app/storage/debugbar
