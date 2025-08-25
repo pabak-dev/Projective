@@ -1,3 +1,4 @@
+import Navbar from "../Components/Navbar";
 import { Head, Link } from "@inertiajs/react";
 
 export default function Welcome({ auth, laravelVersion, phpVersion }) {
@@ -53,71 +54,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
         <>
             <Head title="ProjecTive" />
             <div className="bg-gray-50 text-gray-800 font-sans">
-                {/* navbar */}
-                <header className="bg-gray-50/95 backdrop-blur-sm sticky top-0 z-50">
-                    <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-                        <div className="text-2xl font-bold text-gray-900">
-                            <Link href="/">ProjecTive</Link>
-                        </div>
-                        <nav className="hidden lg:flex items-center space-x-8">
-                            <Link
-                                href="#"
-                                className="text-gray-600 hover:text-gray-900"
-                            >
-                                Board
-                            </Link>
-                            <Link
-                                href="#"
-                                className="text-gray-600 hover:text-gray-900"
-                            >
-                                Analytics
-                            </Link>
-                            <Link
-                                href="#"
-                                className="text-gray-600 hover:text-gray-900"
-                            >
-                                Calendar
-                            </Link>
-                            <Link
-                                href="#"
-                                className="text-gray-600 hover:text-gray-900"
-                            >
-                                Leaderboard
-                            </Link>
-                            <Link
-                                href="#"
-                                className="text-gray-600 hover:text-gray-900"
-                            >
-                                Pricing
-                            </Link>
-                        </nav>
-                        <div className="flex items-center space-x-4">
-                            {auth.user ? (
-                                <Link
-                                    href="dashboard"
-                                    className="text-sm font-medium text-gray-700 hover:text-black"
-                                >
-                                    Dashboard
-                                </Link>
-                            ) : (
-                                <>
-                                    <Link
-                                        href={route("login")}
-                                        className="text-sm font-medium text-gray-700 hover:text-black"
-                                    >
-                                        Log in
-                                    </Link>
-                                    <Link
-                                        href={route("register")}
-                                        className="bg-gray-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800"
-                                    >
-                                        Get started
-                                    </Link>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </header>
+                <Navbar auth={auth} />
 
                 <main>
                     {/* actual page part 1 */}
