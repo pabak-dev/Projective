@@ -54,7 +54,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
         <>
             <Head title="ProjecTive" />
             <div className="bg-gray-50 text-gray-800 font-sans">
-                <Navbar auth={auth} />
+                <Navbar />
 
                 <main>
                     {/* actual page part 1 */}
