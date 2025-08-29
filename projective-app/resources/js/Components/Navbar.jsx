@@ -1,46 +1,26 @@
 import { Link, usePage } from "@inertiajs/react";
-
 export default function Navbar() {
     const { auth } = usePage().props;
 
     return (
-        <header className="bg-gray-50/95 backdrop-blur-sm sticky top-0 z-50">
+        <header className="bg-gray-50/95 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
             <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+                {/* Logo */}
                 <div className="text-2xl font-bold text-gray-900">
                     <Link href="/">ProjecTive</Link>
                 </div>
+
+                {/* Navigation */}
                 <nav className="hidden lg:flex items-center space-x-8">
-                    <Link
-                        href="#"
-                        className="text-gray-600 hover:text-gray-900"
-                    >
-                        Board
+                    <Link href={route("dashboard")} className={linkClasses("/dashboard")}>
+                        Dashboard
                     </Link>
-                    <Link
-                        href="#"
-                        className="text-gray-600 hover:text-gray-900"
-                    >
-                        Analytics
-                    </Link>
-                    <Link
-                        href="#"
-                        className="text-gray-600 hover:text-gray-900"
-                    >
-                        Calendar
-                    </Link>
-                    <Link
-                        href="#"
-                        className="text-gray-600 hover:text-gray-900"
-                    >
-                        Leaderboard
-                    </Link>
-                    <Link
-                        href="#"
-                        className="text-gray-600 hover:text-gray-900"
-                    >
-                        Pricing
+                    <Link href={route("boards")} className={linkClasses("/boards")}>
+                        Boards
                     </Link>
                 </nav>
+
+                {/* Right Side: Authenticated / Guest */}
                 <div className="flex items-center space-x-4">
                     {auth.user ? (
                         <>
