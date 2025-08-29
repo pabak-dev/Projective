@@ -10,15 +10,16 @@ class Task extends Model
     use HasFactory;
 
     protected $fillable = [
-        'project_id','title','description','status','due_date','assignee_id'
+        'project_id',
+        'title',
+        'description',
+        'status',
+        'due_date',
+        'assignee_id',
     ];
 
     public function project() {
         return $this->belongsTo(Project::class);
-    }
-
-    public function assignee() {
-        return $this->belongsTo(User::class,'assignee_id');
     }
 
     public function comments() {
@@ -27,5 +28,9 @@ class Task extends Model
 
     public function attachments() {
         return $this->hasMany(Attachment::class);
+    }
+
+    public function assignedUser() {
+        return $this->belongsTo(User::class, 'assignee_id');
     }
 }
