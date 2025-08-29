@@ -1,12 +1,6 @@
 import { Link, usePage } from "@inertiajs/react";
-
-export default function Navbar({ auth }) {
-    const { url } = usePage();
-
-    const linkClasses = (href) =>
-        url.startsWith(href)
-            ? "text-gray-900 border-b-2 border-indigo-500 pb-1 font-medium"
-            : "text-gray-600 hover:text-gray-900";
+export default function Navbar() {
+    const { auth } = usePage().props;
 
     return (
         <header className="bg-gray-50/95 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
@@ -28,10 +22,23 @@ export default function Navbar({ auth }) {
 
                 {/* Right Side: Authenticated / Guest */}
                 <div className="flex items-center space-x-4">
-                    {auth?.user ? (
-                        <span className="text-sm font-medium text-gray-700">
-                            {auth.user.name}
-                        </span>
+                    {auth.user ? (
+                        <>
+                            <Link
+                                href={route("profile.edit")}
+                                className="text-sm font-medium text-gray-700 hover:text-black"
+                            >
+                                {auth.user.name}
+                            </Link>
+                            <Link
+                                href={route("logout")}
+                                method="post"
+                                as="button"
+                                className="bg-gray-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800"
+                            >
+                                Log Out
+                            </Link>
+                        </>
                     ) : (
                         <>
                             <Link
