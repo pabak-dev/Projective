@@ -9,24 +9,49 @@ use Illuminate\Support\Facades\Storage;
 
 class AttachmentController extends Controller
 {
-    public function index(Task $task) {
-        return $task->attachments;
+    // 🔹 ফাইল লিস্ট দেখা
+    public function index(Task $task)
+    {
+        return $task->attachments()->get();
     }
 
-    public function store(Request $request, Task $task) {
-        $request->validate(['file'=>'required|file|max:2048']);
-        $file=$request->file('file');
-        $path=$file->store('attachments','public');
-        $attachment=$task->attachments()->create([
-            'file_name'=>$file->getClientOriginalName(),
-            'file_path'=>$path
-        ]);
-        return $attachment;
+    // 🔹 ফাইল আপলোড করা
+   public function store(Request $request, Task $task)
+{
+    $request->validate([
+        'file' => 'required|file|mimes:jpg,jpeg,png,pdf,doc,docx,txt|max:5120',
+    ]);
+
+    if ($request->hasFile('file')) {
+        $uploadedFile = $request->file('file');
+        $path = $uploadedFile->store('attachments', 'public');
+
+        $attachment = new Attachment();
+        $attachment->task_id = $task->id;
+        $attachment->file_name = $uploadedFile->getClientOriginalName();
+        $attachment->file_path = $path;
+        $attachment->save();
+
+        return response()->json($attachment, 201);
     }
 
-    public function destroy(Attachment $attachment) {
+    return response()->json(['error' => 'No file uploaded'], 400);
+}
+
+
+
+    // 🔹 ফাইল ডাউনলোড করা
+    public function download(Attachment $attachment)
+    {
+        return Storage::disk('public')->download($attachment->file_path, $attachment->file_name);
+    }
+
+    // 🔹 ফাইল ডিলিট করা
+    public function destroy(Attachment $attachment)
+    {
         Storage::disk('public')->delete($attachment->file_path);
         $attachment->delete();
-        return response()->json(['message'=>'Deleted']);
+
+        return response()->json(['message' => 'Attachment deleted']);
     }
 }
