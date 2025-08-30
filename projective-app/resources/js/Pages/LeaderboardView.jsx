@@ -2,7 +2,7 @@ import { ChevronDownIcon } from '@heroicons/react/24/outline'
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline'
 import React from 'react';
 
-function LeaderboardView() {
+export default function LeaderboardView() {
   const topPerformers = [
     {
       rank: 1,
@@ -231,5 +231,3 @@ function LeaderboardView() {
     </div>
   )
 }
-
-export default LeaderboardView

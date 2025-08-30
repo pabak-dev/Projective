@@ -24,6 +24,28 @@ Route::get('/boards', function () {
     return Inertia::render('Boards');
 })->middleware(['auth', 'verified'])->name('boards');
 
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/dashboard', function () {
+        return Inertia::render('Dashboard');
+    })->name('dashboard');
+
+    Route::get('/boards', function () {
+        return Inertia::render('Boards');
+    })->name('boards');
+
+    Route::get('/analytics', function () {
+        return Inertia::render('Analytics');
+    })->name('analytics');
+
+    Route::get('/calendar', function () {
+        return Inertia::render('Calendar');
+    })->name('calendar');
+
+    Route::get('/leaderboard', function () {
+        return Inertia::render('Leaderboard');
+    })->name('leaderboard');
+});
+
 // Profile management
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
