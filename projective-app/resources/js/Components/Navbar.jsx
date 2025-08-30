@@ -1,7 +1,15 @@
 import { Link, usePage } from "@inertiajs/react";
 
 export default function Navbar() {
-    const { auth } = usePage().props;
+    const { auth, component } = usePage().props;
+
+    const navLinks = [
+        { name: "Dashboard", href: route('dashboard'), active: component === 'Dashboard' },
+        { name: "Boards", href: route('boards'), active: component === 'Boards' },
+        { name: "Analytics", href: route('analytics'), active: component === 'Analytics' },
+        { name: "Calendar", href: route('calendar'), active: component === 'Calendar' },
+        { name: "Leaderboard", href: route('leaderboard'), active: component === 'Leaderboard' },
+    ];
 
     return (
         <header className="bg-gray-50/95 backdrop-blur-sm sticky top-0 z-50">
@@ -10,36 +18,17 @@ export default function Navbar() {
                     <Link href="/">ProjecTive</Link>
                 </div>
                 <nav className="hidden lg:flex items-center space-x-8">
-                    <Link
-                        href="boards"
-                        className="text-gray-600 hover:text-gray-900"
-                    >
-                        Board
-                    </Link>
-                    <Link
-                        href="#"
-                        className="text-gray-600 hover:text-gray-900"
-                    >
-                        Analytics
-                    </Link>
-                    <Link
-                        href="#"
-                        className="text-gray-600 hover:text-gray-900"
-                    >
-                        Calendar
-                    </Link>
-                    <Link
-                        href="#"
-                        className="text-gray-600 hover:text-gray-900"
-                    >
-                        Leaderboard
-                    </Link>
-                    <Link
-                        href="#"
-                        className="text-gray-600 hover:text-gray-900"
-                    >
-                        Pricing
-                    </Link>
+                    {navLinks.map((link) => (
+                        <Link
+                            key={link.name}
+                            href={link.href}
+                            className={`text-gray-600 hover:text-gray-900 ${
+                                link.active ? "font-bold" : ""
+                            }`}
+                        >
+                            {link.name}
+                        </Link>
+                    ))}
                 </nav>
                 <div className="flex items-center space-x-4">
                     {auth.user ? (
