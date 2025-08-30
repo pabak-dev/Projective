@@ -8,24 +8,42 @@ use Illuminate\Http\Request;
 
 class CommentController extends Controller
 {
+    // -------------------------------
+    // Get all comments for a task
+    // -------------------------------
     public function index(Task $task) {
-        return $task->comments()->with('user:id,name')->get();
+        return response()->json(
+            $task->comments()->with('user:id,name')->get()
+        );
     }
-public function store(Request $request, Task $task) {
-    $comment = $task->comments()->create([
-        'user_id' => $request->user_id,
-        'content' => $request->content
-    ]);
 
-    // return task with updated counts
-    return $task->loadCount(['comments','attachments'])->load('assignedUser');
-}
+    // -------------------------------
+    // Store new comment
+    // -------------------------------
+    public function store(Request $request, Task $task) {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'content' => 'required|string'
+        ]);
 
-public function destroy(Comment $comment) {
-    $task = $comment->task;
-    $comment->delete();
+        $comment = $task->comments()->create([
+            'user_id' => $request->user_id,
+            'content' => $request->content
+        ]);
 
-    return $task->loadCount(['comments','attachments'])->load('assignedUser');
-}
+        // return just the new comment with user
+        return response()->json(
+            $comment->load('user:id,name'),
+            201
+        );
+    }
 
+    // -------------------------------
+    // Delete comment
+    // -------------------------------
+    public function destroy(Comment $comment) {
+        $comment->delete();
+
+        return response()->json(null, 204);
+    }
 }

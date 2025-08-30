@@ -7,6 +7,10 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\AttachmentController;
 
 use App\Http\Controllers\UserController;
+Route::get('/test', function () {
+    return response()->json(['status' => 'ok']);
+});
+
 
 Route::get('/users', [UserController::class, 'index']);
 
