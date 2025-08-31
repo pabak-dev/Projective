@@ -19,9 +19,6 @@ export default function Boards() {
     fetchUsers();
   }, []);
 
-  // -------------------------------
-  // Fetch tasks
-  // -------------------------------
   const fetchTasks = async () => {
     const res = await axios.get("http://localhost:8000/api/projects/1/tasks");
     const grouped = { todo: [], in_progress: [], review: [], done: [] };
@@ -29,17 +26,11 @@ export default function Boards() {
     setTasks(grouped);
   };
 
-  // -------------------------------
-  // Fetch users
-  // -------------------------------
   const fetchUsers = async () => {
     const res = await axios.get("http://localhost:8000/api/users");
     setUsers(res.data);
   };
 
-  // -------------------------------
-  // Add Task
-  // -------------------------------
   const addTask = async (status) => {
     if (!newTask[status].trim()) return;
     const res = await axios.post("http://localhost:8000/api/projects/1/tasks", {
@@ -52,17 +43,11 @@ export default function Boards() {
     setNewTask({ ...newTask, [status]: "" });
   };
 
-  // -------------------------------
-  // Delete Task
-  // -------------------------------
   const deleteTask = async (task, status) => {
     await axios.delete(`http://localhost:8000/api/tasks/${task.id}`);
     setTasks({ ...tasks, [status]: tasks[status].filter((t) => t.id !== task.id) });
   };
 
-  // -------------------------------
-  // Drag & Drop
-  // -------------------------------
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
     const { source, destination } = result;
@@ -84,9 +69,17 @@ export default function Boards() {
     await axios.put(`http://localhost:8000/api/tasks/${moved.id}`, { status: moved.status });
   };
 
-  // -------------------------------
-  // Comments
-  // -------------------------------
+  const updateTaskInState = (updatedTask) => {
+    setTasks((prev) => {
+      const updated = { ...prev };
+      for (let key in updated) {
+        updated[key] = updated[key].filter((t) => t.id !== updatedTask.id);
+      }
+      updated[updatedTask.status] = [...updated[updatedTask.status], updatedTask];
+      return updated;
+    });
+  };
+
   const fetchComments = async (taskId) => {
     const res = await axios.get(`http://localhost:8000/api/tasks/${taskId}/comments`);
     setComments(res.data);
@@ -109,9 +102,6 @@ export default function Boards() {
     fetchTasks();
   };
 
-  // -------------------------------
-  // Attachments
-  // -------------------------------
   const fetchAttachments = async (taskId) => {
     const res = await axios.get(`http://localhost:8000/api/tasks/${taskId}/attachments`);
     setAttachments(res.data);
@@ -128,7 +118,6 @@ export default function Boards() {
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
-
       setAttachments([...attachments, res.data]);
       setSelectedFile(null);
       fetchTasks();
@@ -143,38 +132,44 @@ export default function Boards() {
     fetchTasks();
   };
 
-  // -------------------------------
-  // Assign / Unassign user
-  // -------------------------------
   const assignUser = async () => {
     if (!selectedUser) return;
-    const res = await axios.post(`http://localhost:8000/api/tasks/${selectedTask.id}/assign`, {
-      user_id: selectedUser,
-    });
-    setSelectedTask(res.data.task);
-    fetchTasks();
+    const res = await axios.post(
+      `http://localhost:8000/api/tasks/${selectedTask.id}/assign`,
+      { user_id: selectedUser }
+    );
+    const updatedTask = res.data.task;
+    setSelectedTask(updatedTask);
+    updateTaskInState(updatedTask);
   };
 
   const unassignUser = async () => {
-    await axios.post(`http://localhost:8000/api/tasks/${selectedTask.id}/unassign`);
-    setSelectedTask({ ...selectedTask, assignee: null });
-    fetchTasks();
+    const res = await axios.post(`http://localhost:8000/api/tasks/${selectedTask.id}/unassign`);
+    const updatedTask = res.data.task;
+    setSelectedTask(updatedTask);
+    updateTaskInState(updatedTask);
   };
 
-  // -------------------------------
-  // Update Due Date
-  // -------------------------------
   const updateDueDate = async (date) => {
     const res = await axios.put(`http://localhost:8000/api/tasks/${selectedTask.id}`, {
       due_date: date,
     });
     setSelectedTask(res.data);
-    fetchTasks();
+    updateTaskInState(res.data);
   };
 
-  // -------------------------------
-  // Render Task Card
-  // -------------------------------
+  const updateDescription = async () => {
+    const res = await axios.put(`http://localhost:8000/api/tasks/${selectedTask.id}`, {
+      title: selectedTask.title,
+      description: selectedTask.description,
+      status: selectedTask.status,
+      due_date: selectedTask.due_date,
+      assignee_id: selectedTask.assigned_user?.id || null,
+    });
+    setSelectedTask(res.data);
+    updateTaskInState(res.data);
+  };
+
   const renderTaskCard = (task, status) => (
     <div
       className="bg-white p-3 rounded shadow mb-2 cursor-pointer hover:bg-gray-50"
@@ -187,12 +182,18 @@ export default function Boards() {
       <div className="flex justify-between items-start">
         <p className="font-medium">{task.title}</p>
         <button
-          onClick={(e) => { e.stopPropagation(); deleteTask(task, status); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            deleteTask(task, status);
+          }}
           className="text-red-500 text-xs"
         >
           Delete
         </button>
       </div>
+      {task.description && (
+        <p className="text-sm text-gray-600 mt-1 line-clamp-2">{task.description}</p>
+      )}
       {task.due_date && (
         <p
           className={`text-xs mt-1 ${
@@ -205,7 +206,7 @@ export default function Boards() {
         </p>
       )}
       <div className="flex justify-between text-xs text-gray-500 mt-2">
-        <span>👤 {task.assignee?.name || "Unassigned"}</span>
+        <span>👤 {task.assigned_user?.name || "Unassigned"}</span>
         <div className="flex gap-3">
           <span>💬 {task.comments_count || 0}</span>
           <span>📎 {task.attachments_count || 0}</span>
@@ -214,18 +215,20 @@ export default function Boards() {
     </div>
   );
 
-  // -------------------------------
-  // Render Column
-  // -------------------------------
   const renderColumn = (title, key) => (
     <Droppable droppableId={key}>
       {(provided) => (
-        <div ref={provided.innerRef} {...provided.droppableProps} className="bg-gray-100 p-4 rounded min-h-[300px]">
+        <div
+          ref={provided.innerRef}
+          {...provided.droppableProps}
+          className="bg-gray-100 p-4 rounded min-h-[300px]"
+        >
           <h2 className="font-semibold mb-2">{title}</h2>
           {tasks[key]
             .filter(
               (task) =>
-                filter === "all" || (filter === "overdue" && new Date(task.due_date) < new Date())
+                filter === "all" ||
+                (filter === "overdue" && new Date(task.due_date) < new Date())
             )
             .map((task, index) => (
               <Draggable key={task.id} draggableId={task.id.toString()} index={index}>
@@ -245,7 +248,7 @@ export default function Boards() {
           />
           <button
             onClick={() => addTask(key)}
-            className="bg-blue-500 text-white px-2 py-1 rounded mt-1 w-full text-sm hover:bg-blue-600"
+            className="bg-black text-white px-2 py-1 rounded mt-1 w-full text-sm hover:bg-black"
           >
             + Add Task
           </button>
@@ -254,38 +257,43 @@ export default function Boards() {
     </Droppable>
   );
 
-  // -------------------------------
-  // Stats
-  // -------------------------------
   const stats = {
     total: Object.values(tasks).flat().length,
     inProgress: tasks.in_progress.length,
     completed: tasks.done.length,
-    overdue: Object.values(tasks).flat().filter((t) => new Date(t.due_date) < new Date() && t.status !== "done").length,
+    overdue: Object.values(tasks)
+      .flat()
+      .filter((t) => new Date(t.due_date) < new Date() && t.status !== "done").length,
   };
 
   return (
     <div className="flex">
-      {/* Sidebar */}
       <aside className="w-64 bg-white border-r p-4 hidden md:block">
         <h3 className="font-bold mb-4">Workspace</h3>
         <ul className="space-y-2">
-          <li className="font-medium text-blue-600">Project Alpha</li>
+          <li className="font-medium text-black">Project Alpha</li>
         </ul>
       </aside>
 
-      {/* Main */}
       <div className="flex-1 p-6">
-        {/* Top bar */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Project Alpha Board</h1>
           <div className="space-x-2">
-            <button onClick={() => setFilter("all")} className="px-3 py-1 border rounded">All</button>
-            <button onClick={() => setFilter("overdue")} className="px-3 py-1 border rounded">Overdue</button>
+            <button
+              onClick={() => setFilter("all")}
+              className="px-3 py-1 border border-black rounded text-black"
+            >
+              All
+            </button>
+            <button
+              onClick={() => setFilter("overdue")}
+              className="px-3 py-1 border border-black rounded text-black"
+            >
+              Overdue
+            </button>
           </div>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white p-4 rounded shadow">Total {stats.total}</div>
           <div className="bg-white p-4 rounded shadow">In Progress {stats.inProgress}</div>
@@ -293,7 +301,6 @@ export default function Boards() {
           <div className="bg-white p-4 rounded shadow">Overdue {stats.overdue}</div>
         </div>
 
-        {/* Task Board */}
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {renderColumn("To Do", "todo")}
@@ -303,14 +310,12 @@ export default function Boards() {
           </div>
         </DragDropContext>
 
-        {/* Task Modal */}
         {selectedTask && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
             <div className="bg-white p-6 rounded w-1/2 max-h-[80vh] overflow-y-auto">
               <h2 className="text-xl font-bold mb-2">{selectedTask.title}</h2>
               <p className="mb-4">Due: {selectedTask.due_date}</p>
 
-              {/* Assignee */}
               <h3 className="font-semibold mb-2">Assignee</h3>
               <div className="flex gap-2 mb-4">
                 <select
@@ -320,14 +325,19 @@ export default function Boards() {
                 >
                   <option value="">-- Select User --</option>
                   {users.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
                   ))}
                 </select>
-                <button onClick={assignUser} className="bg-green-500 text-white px-3 py-1 rounded">Assign</button>
-                <button onClick={unassignUser} className="bg-red-500 text-white px-3 py-1 rounded">Unassign</button>
+                <button onClick={assignUser} className="bg-black text-white px-3 py-1 rounded">
+                  Assign
+                </button>
+                <button onClick={unassignUser} className="bg-black text-white px-3 py-1 rounded">
+                  Unassign
+                </button>
               </div>
 
-              {/* Due Date */}
               <h3 className="font-semibold mb-2">Due Date</h3>
               <input
                 type="date"
@@ -336,13 +346,36 @@ export default function Boards() {
                 className="border p-2 rounded mb-4"
               />
 
-              {/* Comments */}
+              <h3 className="font-semibold mb-2">Description</h3>
+              <textarea
+                value={selectedTask.description || ""}
+                onChange={(e) => setSelectedTask({ ...selectedTask, description: e.target.value })}
+                className="border p-2 rounded w-full mb-2"
+                rows="3"
+              />
+              <button
+                onClick={updateDescription}
+                className="bg-black text-white px-3 py-1 rounded mb-4"
+              >
+                Save Description
+              </button>
+
               <h3 className="font-semibold mb-2">Comments</h3>
               <ul className="space-y-2 mb-3">
                 {comments.map((c) => (
-                  <li key={c.id} className="bg-gray-100 p-2 rounded flex justify-between items-center">
-                    <span><b>{c.user?.name}</b>: {c.content}</span>
-                    <button onClick={() => deleteComment(c.id)} className="text-red-500 text-xs">Delete</button>
+                  <li
+                    key={c.id}
+                    className="bg-gray-100 p-2 rounded flex justify-between items-center"
+                  >
+                    <span>
+                      <b>{c.user?.name}</b>: {c.content}
+                    </span>
+                    <button
+                      onClick={() => deleteComment(c.id)}
+                      className="text-red-500 text-xs"
+                    >
+                      Delete
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -353,35 +386,59 @@ export default function Boards() {
                   placeholder="Write a comment..."
                   className="border p-2 rounded flex-1"
                 />
-                <button onClick={addComment} className="bg-blue-500 text-white px-3 py-1 rounded">Send</button>
+                <button onClick={addComment} className="bg-black text-white px-3 py-1 rounded">
+                  Send
+                </button>
               </div>
 
-              {/* Attachments */}
               <h3 className="font-semibold mb-2">Attachments</h3>
               <ul className="space-y-2 mb-3">
                 {attachments.map((a) => (
-                  <li key={a.id} className="flex justify-between items-center bg-gray-100 p-2 rounded">
-                    <a href={`http://localhost:8000/storage/${a.file_path}`} target="_blank" rel="noreferrer" className="text-blue-600 underline">
+                  <li
+                    key={a.id}
+                    className="flex justify-between items-center bg-gray-100 p-2 rounded"
+                  >
+                    <a
+                      href={`http://localhost:8000/storage/${a.file_path}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-black underline"
+                    >
                       {a.file_name}
                     </a>
-                    <button onClick={() => deleteAttachment(a.id)} className="text-red-500 text-xs">Delete</button>
+                    <button
+                      onClick={() => deleteAttachment(a.id)}
+                      className="text-red-500 text-xs"
+                    >
+                      Delete
+                    </button>
                   </li>
                 ))}
               </ul>
 
-              {/* File Upload */}
               <div className="flex gap-2 mb-4">
-                <input type="file" onChange={(e) => setSelectedFile(e.target.files[0])} className="flex-1 border p-2 rounded" />
+                <input
+                  type="file"
+                  onChange={(e) => setSelectedFile(e.target.files[0])}
+                  className="flex-1 border p-2 rounded"
+                />
                 <button
                   onClick={uploadAttachment}
                   disabled={!selectedFile}
-                  className={`px-3 py-1 rounded text-white ${selectedFile ? "bg-blue-500 hover:bg-blue-600" : "bg-gray-400 cursor-not-allowed"}`}
+                  className={`px-3 py-1 rounded text-white ${
+                    selectedFile ? "bg-black hover:bg-black" : "bg-gray-400 cursor-not-allowed"
+                  }`}
                 >
                   Upload
                 </button>
               </div>
 
-              <button onClick={() => setSelectedTask(null)} className="mt-4 bg-gray-500 text-white px-3 py-1 rounded">Close</button>
+              <button
+                onClick={() => setSelectedTask(null)}
+                className="mt-4 bg-black text-white px-3 py-1 rounded"
+              >
+                Close
+              </button>
             </div>
           </div>
         )}

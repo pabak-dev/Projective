@@ -7,12 +7,25 @@ use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
-    public function index() {
+    // 🔹 সব project list
+    public function index()
+    {
         return response()->json(Project::all());
     }
 
-    public function store(Request $request) {
-        $project = Project::create($request->all());
+    // 🔹 নতুন project create
+    public function store(Request $request)
+    {
+        // Validation
+        $validated = $request->validate([
+            'name'        => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'status'      => 'nullable|in:active,archived,completed',
+            'due_date'    => 'nullable|date',
+        ]);
+
+        $project = Project::create($validated);
+
         return response()->json($project, 201);
     }
 }

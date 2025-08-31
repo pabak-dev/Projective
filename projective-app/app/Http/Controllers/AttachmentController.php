@@ -9,49 +9,51 @@ use Illuminate\Support\Facades\Storage;
 
 class AttachmentController extends Controller
 {
-    // 🔹 ফাইল লিস্ট দেখা
+    // 🔹 ফাইল লিস্ট
     public function index(Task $task)
     {
-        return $task->attachments()->get();
+        return response()->json(
+            $task->attachments()->get()
+        );
     }
 
-    // 🔹 ফাইল আপলোড করা
-   public function store(Request $request, Task $task)
-{
-    $request->validate([
-        'file' => 'required|file|mimes:jpg,jpeg,png,pdf,doc,docx,txt|max:5120',
-    ]);
+    // 🔹 ফাইল আপলোড
+    public function store(Request $request, Task $task)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:jpg,jpeg,png,pdf,doc,docx,txt|max:5120',
+        ]);
 
-    if ($request->hasFile('file')) {
         $uploadedFile = $request->file('file');
         $path = $uploadedFile->store('attachments', 'public');
 
-        $attachment = new Attachment();
-        $attachment->task_id = $task->id;
-        $attachment->file_name = $uploadedFile->getClientOriginalName();
-        $attachment->file_path = $path;
-        $attachment->save();
+        $attachment = $task->attachments()->create([
+            'file_name' => $uploadedFile->getClientOriginalName(),
+            'file_path' => $path,
+        ]);
 
         return response()->json($attachment, 201);
     }
 
-    return response()->json(['error' => 'No file uploaded'], 400);
-}
-
-
-
-    // 🔹 ফাইল ডাউনলোড করা
+    // 🔹 ফাইল ডাউনলোড
     public function download(Attachment $attachment)
     {
+        if (!Storage::disk('public')->exists($attachment->file_path)) {
+            return response()->json(['error' => 'File not found'], 404);
+        }
+
         return Storage::disk('public')->download($attachment->file_path, $attachment->file_name);
     }
 
-    // 🔹 ফাইল ডিলিট করা
+    // 🔹 ফাইল ডিলিট
     public function destroy(Attachment $attachment)
     {
-        Storage::disk('public')->delete($attachment->file_path);
+        if (Storage::disk('public')->exists($attachment->file_path)) {
+            Storage::disk('public')->delete($attachment->file_path);
+        }
+
         $attachment->delete();
 
-        return response()->json(['message' => 'Attachment deleted']);
+        return response()->json(null, 204);
     }
 }
