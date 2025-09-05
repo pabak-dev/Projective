@@ -7,13 +7,13 @@ use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
-    // 🔹 সব project list
+   
     public function index()
     {
         return response()->json(Project::all());
     }
 
-    // 🔹 নতুন project create
+    
     public function store(Request $request)
     {
         // Validation
