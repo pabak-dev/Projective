@@ -36,6 +36,7 @@ export default function Boards() {
     const [selectedFile, setSelectedFile] = useState(null);
     const [users, setUsers] = useState([]);
     const [selectedUser, setSelectedUser] = useState("");
+    const [filter, setFilter] = useState("all"); // all | overdue
 
     useEffect(() => {
         fetchTasks();
@@ -98,7 +99,6 @@ export default function Boards() {
     };
 
     const openTaskModal = async (task) => {
-        // fetch full task details to get relations like comments, attachments, etc.
         const res = await axios.get(`/api/tasks/${task.id}`);
         setSelectedTask(res.data);
         setComments(res.data.comments || []);
@@ -106,7 +106,6 @@ export default function Boards() {
     };
 
     const updateTaskInState = (updatedTask) => {
-        // Helper to update a task in the main board state without a full refetch
         const newTasks = { ...tasks };
         Object.keys(newTasks).forEach((status) => {
             newTasks[status] = newTasks[status].map((task) =>
@@ -114,12 +113,11 @@ export default function Boards() {
             );
         });
         setTasks(newTasks);
-        fetchTasks(); // Also do a soft refetch to update counts
+        fetchTasks();
     };
 
     const addComment = async () => {
         if (!newComment.trim() || !selectedTask) return;
-        // replace user_id: 1 with the actual authenticated user's ID
         const res = await axios.post(`/api/tasks/${selectedTask.id}/comments`, {
             user_id: 1,
             content: newComment,
@@ -215,6 +213,20 @@ export default function Boards() {
         done: "Done",
     };
 
+    // filter applied here
+    const getFilteredTasks = () => {
+        if (filter === "overdue") {
+            const overdueTasks = { todo: [], in_progress: [], review: [], done: [] };
+            Object.keys(tasks).forEach((status) => {
+                overdueTasks[status] = tasks[status].filter(
+                    (t) => new Date(t.due_date) < new Date() && t.status !== "done"
+                );
+            });
+            return overdueTasks;
+        }
+        return tasks; // all
+    };
+
     const renderTaskCard = (task, status) => (
         <div
             className="bg-white p-3 rounded-md shadow-sm mb-3 border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
@@ -244,6 +256,8 @@ export default function Boards() {
         </div>
     );
 
+    const filteredTasks = getFilteredTasks();
+
     return (
         <AuthenticatedLayout>
             <Head title="Boards" />
@@ -261,9 +275,14 @@ export default function Boards() {
                                 </p>
                             </div>
                             <div className="flex items-center space-x-2 mt-4 sm:mt-0">
-                                <button className="px-4 py-2 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-                                    Filter
-                                </button>
+                                <select
+                                    value={filter}
+                                    onChange={(e) => setFilter(e.target.value)}
+                                    className="px-4 py-2 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                                >
+                                    <option value="all">All</option>
+                                    <option value="overdue">Overdue</option>
+                                </select>
                                 <button className="px-4 py-2 border rounded-md text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 flex items-center">
                                     <Plus size={16} className="mr-1" /> Add Task
                                 </button>
@@ -332,11 +351,11 @@ export default function Boards() {
                                                         {title}
                                                     </h2>
                                                     <span className="text-sm text-gray-500 bg-gray-200 rounded-full px-2 py-1">
-                                                        {tasks[key].length}
+                                                        {filteredTasks[key].length}
                                                     </span>
                                                 </div>
                                                 <div className="min-h-[200px]">
-                                                    {tasks[key].map(
+                                                    {filteredTasks[key].map(
                                                         (task, index) => (
                                                             <Draggable
                                                                 key={task.id.toString()}
@@ -391,7 +410,6 @@ export default function Boards() {
                             </div>
                         </DragDropContext>
                     </div>
-
                     <Modal
                         show={selectedTask !== null}
                         onClose={() => setSelectedTask(null)}
