@@ -46,7 +46,7 @@ class TaskController extends Controller
     // -------------------------------
     public function show(Task $task)
     {
-        return $task->loadCount(['comments','attachments'])
+        return $task->loadCount(['comments', 'attachments'])
                     ->load([
                         'assignedUser:id,name',
                         'comments.user:id,name',
