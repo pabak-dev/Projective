@@ -1,88 +1,30 @@
-import { ChevronDownIcon } from '@heroicons/react/24/outline'
-import { ArrowDownTrayIcon } from '@heroicons/react/24/outline'
-import React from 'react';
+import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import React, { useState } from 'react';
+import { router, usePage } from '@inertiajs/react'; 
 
-export default function LeaderboardView() {
-  const topPerformers = [
-    {
-      rank: 1,
-      name: 'Sarah Chen',
-      role: 'Frontend Developer',
-      points: 2847,
-      weeklyChange: '+247 this week',
-      avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      rank: 2,
-      name: 'Marcus Rodriguez',
-      role: 'Backend Developer',
-      points: 2431,
-      weeklyChange: '+189 this week',
-      avatar: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      rank: 3,
-      name: 'Emily Watson',
-      role: 'UX Designer',
-      points: 2156,
-      weeklyChange: '+156 this week',
-      avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      rank: 4,
-      name: 'You',
-      role: 'Full Stack Developer',
-      points: 1247,
-      weeklyChange: '-23 this week',
-      avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400',
-      isCurrentUser: true
-    },
-    {
-      rank: 5,
-      name: 'David Kim',
-      role: 'Product Manager',
-      points: 987,
-      weeklyChange: '+67 this week',
-      avatar: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=400'
-    }
-  ]
+// Add default values to the props here
+export default function LeaderboardView({
+    topPerformers = [],
+    pointSystem = { taskCompletion: [], bonusPoints: [] },
+    achievements = [],
+    userStats = { totalPoints: 0, rank: '#-', tasksCompleted: 0, avgPointsPerTask: 0 }
+}) {
+   const { period } = usePage().props;
+  const [selectedPeriod, setSelectedPeriod] = useState(period || 'monthly');
 
-  const pointSystem = {
-    taskCompletion: [
-      { task: 'Story Point (Small)', points: 10 },
-      { task: 'Story Point (Medium)', points: 25 },
-      { task: 'Story Point (Large)', points: 50 },
-      { task: 'Bug Fix', points: 15 }
-    ],
-    bonusPoints: [
-      { task: 'Early Completion', points: '+5 pts' },
-      { task: 'Code Review', points: '+3 pts' },
-      { task: 'Documentation', points: '+8 pts' },
-      { task: 'Late Penalty', points: '-10 pts' }
-    ]
-  }
+   // 3. This function runs when the dropdown value changes
+  const handlePeriodChange = (e) => {
+    const newPeriod = e.target.value;
+    setSelectedPeriod(newPeriod);
+ // 4. Make a new request to the same page with a 'period' query parameter
+    router.get(route('leaderboard'), { period: newPeriod }, {
+      preserveState: true,
+      replace: true,
+    });
+  };
 
-  const achievements = [
-    {
-      icon: '⚡',
-      title: 'Speed Demon',
-      description: 'Complete 5 tasks early',
-      earned: true
-    },
-    {
-      icon: '👨‍💻',
-      title: 'Code Reviewer',
-      description: 'Review 10 pull requests',
-      earned: true
-    },
-    {
-      icon: '🤝',
-      title: 'Team Player',
-      description: 'Help 5 teammates',
-      earned: false
-    }
-  ]
 
+  // The rest of your component code remains the same...
   return (
     <div className="leaderboard-view">
       <div className="leaderboard-header">
@@ -166,19 +108,19 @@ export default function LeaderboardView() {
             <div className="stats-grid">
               <div className="stat-item">
                 <span className="stat-label">Total Points</span>
-                <span className="stat-value">1,247</span>
+                <span className="stat-value">{userStats.totalPoints.toLocaleString()}</span>
               </div>
               <div className="stat-item">
                 <span className="stat-label">Rank</span>
-                <span className="stat-value">#4</span>
+                <span className="stat-value">{userStats.rank}</span>
               </div>
               <div className="stat-item">
                 <span className="stat-label">Tasks Completed</span>
-                <span className="stat-value">23</span>
+                <span className="stat-value">{userStats.tasksCompleted}</span>
               </div>
               <div className="stat-item">
                 <span className="stat-label">Avg Points/Task</span>
-                <span className="stat-value">54</span>
+                <span className="stat-value">{userStats.avgPointsPerTask}</span>
               </div>
             </div>
           </div>
@@ -197,37 +139,8 @@ export default function LeaderboardView() {
               ))}
             </div>
           </div>
-
-          <div className="weekly-challenge-section">
-            <h2 className="section-title">Weekly Challenge</h2>
-            <div className="challenge-card">
-              <div className="challenge-icon">
-                <span>🏃</span>
-              </div>
-              <div className="challenge-info">
-                <div className="challenge-title">Sprint Master</div>
-                <div className="challenge-description">Complete 8 tasks this week</div>
-                <div className="challenge-progress">
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: '62.5%' }}></div>
-                  </div>
-                  <div className="progress-text">5/8 tasks completed</div>
-                  <div className="progress-reward">Reward: 100 bonus points</div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
-
-      <footer className="leaderboard-footer">
-        <p>© 2025 ProjectIve. All rights reserved.</p>
-        <div className="footer-links">
-          <a href="#">Help</a>
-          <a href="#">Privacy</a>
-          <a href="#">Terms</a>
-        </div>
-      </footer>
     </div>
   )
 }
