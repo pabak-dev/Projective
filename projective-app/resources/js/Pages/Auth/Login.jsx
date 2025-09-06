@@ -29,7 +29,7 @@ export default function Login({ status, canResetPassword }) {
             <Head title="Sign In" />
 
             <div className="flex flex-col items-center mb-8">
-                
+
                 <h1 className="text-xl font-semibold mt-4 text-gray-700">Projective</h1>
                 <p className="text-sm text-gray-500">Team Task Management</p>
                 <p className="mt-6 text-gray-600">Welcome back to your team</p>
@@ -78,9 +78,9 @@ export default function Login({ status, canResetPassword }) {
                         Sign In & Start Collaborating
                     </PrimaryButton>
                 </div>
-                
+
                 <div className="text-center mt-4">
-                     <Link
+                    <Link
                         href={route('password.request')}
                         className="underline text-sm text-gray-600 hover:text-gray-900"
                     >
@@ -88,8 +88,7 @@ export default function Login({ status, canResetPassword }) {
                     </Link>
                 </div>
             </form>
-
-            <p className="text-center text-gray-500 mt-10">
+           <p className="text-center text-gray-500 mt-10">
                 Don't have an account?{' '}
                 <Link href={route('register')} className="font-semibold text-blue-600 hover:text-blue-800">
                     Create one here
