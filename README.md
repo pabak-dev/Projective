@@ -76,8 +76,11 @@ The project aims to solve inefficiencies in team collaboration, communication, a
 ---
 
 - **Pabak Dev** - 20220204005
+ [![wakatime](https://wakatime.com/badge/user/85cb73f7-78ac-4c44-b46a-96c2cea7248b/project/93bba6a0-7fdf-4749-a6c7-507d3a376ce8.svg)](https://wakatime.com/badge/user/85cb73f7-78ac-4c44-b46a-96c2cea7248b/project/93bba6a0-7fdf-4749-a6c7-507d3a376ce8)
 - **Jannatul Nayem** - 20220204007
+ [![wakatime](https://wakatime.com/badge/user/a0bdd3d2-b1db-4c31-b28d-4fb8fae51ec4/project/6dfcc794-af19-4cdc-8f26-239e3214a707.svg)](https://wakatime.com/badge/user/a0bdd3d2-b1db-4c31-b28d-4fb8fae51ec4/project/6dfcc794-af19-4cdc-8f26-239e3214a707) 
 - **Sadmanul Arefin** - 20220204009
+ [![wakatime](https://wakatime.com/badge/user/5212e80f-0d42-46a3-8786-63be3a5dc3f8/project/d090dcde-0479-4a07-b8a8-a4f2cc688ee6.svg)](https://wakatime.com/badge/user/5212e80f-0d42-46a3-8786-63be3a5dc3f8/project/d090dcde-0479-4a07-b8a8-a4f2cc688ee6)
 - **Israt Jahan Eshita** - 20220204018
 
 ---
