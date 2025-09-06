@@ -73,7 +73,7 @@ export default function Login({ status, canResetPassword }) {
                 </div>
 
                 <div className="mt-6">
-                    {/* For the gradient button, you'll need to add custom styles to your CSS */}
+                    
                     <PrimaryButton className="w-full justify-center !py-3 bg-gradient-to-r from-blue-500 to-purple-600" disabled={processing}>
                         Sign In & Start Collaborating
                     </PrimaryButton>

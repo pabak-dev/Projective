@@ -107,7 +107,7 @@ export default function Register() {
                 </div>
 
                 <div className="mt-6">
-                    {/* For the gradient button, you'll need to add custom styles to your CSS */}
+                   
                     <PrimaryButton className="w-full justify-center !py-3 bg-gradient-to-r from-purple-600 to-pink-500" disabled={processing}>
                         Join Your Team & Start Earning Points
                     </PrimaryButton>
