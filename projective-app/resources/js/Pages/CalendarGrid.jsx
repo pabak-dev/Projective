@@ -1,49 +1,50 @@
-import { useState } from 'react'
-import TaskCard from './TaskCard'
+import TaskCard from './TaskCard';
 import React from 'react';
 
-function CalendarGrid({ currentDate }) {
-  // Sample tasks data matching the Figma design
-  const tasks = {
-    1: [
-      { title: 'API Integration', priority: 'High Priority', type: 'high' }
-    ],
-    3: [
-      { title: 'Design Review', priority: 'Medium', type: 'medium' }
-    ],
-    6: [
-      { title: 'Sprint Planning', subtitle: 'Team Meeting', type: 'meeting' }
-    ],
-    8: [
-      { title: 'Testing Phase', priority: 'Low Priority', type: 'low' },
-      { title: 'Bug Fixes', priority: 'Critical', type: 'high' }
-    ],
-    15: [
-      { title: 'Client Demo', priority: 'Milestone', type: 'milestone' }
-    ],
-    22: [
-      { title: 'Documentation', priority: 'In Progress', type: 'medium' }
-    ]
-  }
+// The component now accepts 'tasks' as a prop
+function CalendarGrid({ currentDate, tasks = [] }) {
+
+  // This helper function groups tasks by their due date
+  const getTasksForMonth = (tasks, date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const tasksByDay = {};
+
+    tasks.forEach(task => {
+      const dueDate = new Date(task.due_date);
+      // Check if the task's due date is in the currently viewed month
+      if (dueDate.getFullYear() === year && dueDate.getMonth() === month) {
+        const dayOfMonth = dueDate.getDate();
+        if (!tasksByDay[dayOfMonth]) {
+          tasksByDay[dayOfMonth] = [];
+        }
+        // Add a 'type' for styling, can be customized
+        tasksByDay[dayOfMonth].push({ ...task, type: 'medium' });
+      }
+    });
+
+    return tasksByDay;
+  };
+
+  const tasksByDay = getTasksForMonth(tasks, currentDate);
 
   const getDaysInMonth = (date) => {
-    const year = date.getFullYear()
-    const month = date.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
-    const daysInMonth = lastDay.getDate()
-    const startingDayOfWeek = firstDay.getDay()
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
 
-    const days = []
+    const days = [];
     
     // Add previous month's days
-    const prevMonth = new Date(year, month - 1, 0)
-    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    for (let i = startingDayOfWeek; i > 0; i--) {
       days.push({
-        day: prevMonth.getDate() - i,
+        day: prevMonthLastDay - i + 1,
         isCurrentMonth: false,
-        isPrevMonth: true
-      })
+      });
     }
 
     // Add current month's days
@@ -51,26 +52,25 @@ function CalendarGrid({ currentDate }) {
       days.push({
         day,
         isCurrentMonth: true,
-        tasks: tasks[day] || []
-      })
+        tasks: tasksByDay[day] || []
+      });
     }
 
     // Add next month's days to fill the grid
-    const totalCells = Math.ceil(days.length / 7) * 7
-    let nextMonthDay = 1
+    const totalCells = Math.ceil(days.length / 7) * 7;
+    let nextMonthDay = 1;
     while (days.length < totalCells) {
       days.push({
         day: nextMonthDay++,
         isCurrentMonth: false,
-        isNextMonth: true
-      })
+      });
     }
 
-    return days
-  }
+    return days;
+  };
 
-  const days = getDaysInMonth(currentDate)
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const days = getDaysInMonth(currentDate);
+  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
     <div className="calendar-grid">
@@ -97,7 +97,7 @@ function CalendarGrid({ currentDate }) {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
-export default CalendarGrid
+export default CalendarGrid;

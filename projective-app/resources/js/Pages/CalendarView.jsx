@@ -1,24 +1,25 @@
-import { useState } from 'react'
-import { ChevronLeftIcon, ChevronRightIcon, FunnelIcon, PlusIcon } from '@heroicons/react/24/outline'
-import CalendarGrid from './CalendarGrid'
-import Legend from './Legend'
+import { useState } from 'react';
+import { ChevronLeftIcon, ChevronRightIcon, FunnelIcon, PlusIcon } from '@heroicons/react/24/outline';
+import CalendarGrid from './CalendarGrid';
+import Legend from './Legend';
 import React from 'react';
 
-function CalendarView() {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 0, 1)) // January 2025
-  const [viewMode, setViewMode] = useState('Month')
+// The component now accepts the 'tasks' prop
+function CalendarView({ tasks = [] }) {
+  const [currentDate, setCurrentDate] = useState(new Date()); // Use today's date
+  const [viewMode, setViewMode] = useState('Month');
 
   const formatMonthYear = (date) => {
-    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-  }
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
 
   const navigateMonth = (direction) => {
     setCurrentDate(prev => {
-      const newDate = new Date(prev)
-      newDate.setMonth(prev.getMonth() + direction)
-      return newDate
-    })
-  }
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() + direction);
+      return newDate;
+    });
+  };
 
   return (
     <div className="calendar-view">
@@ -34,8 +35,6 @@ function CalendarView() {
           </button>
           <select className="project-select">
             <option>All Projects</option>
-            <option>Web Development</option>
-            <option>Mobile App</option>
           </select>
           <button className="add-task-btn">
             <PlusIcon className="w-4 h-4" />
@@ -67,14 +66,15 @@ function CalendarView() {
         </div>
       </div>
 
-      <CalendarGrid currentDate={currentDate} />
+      {/* Pass the tasks down to the grid component */}
+      <CalendarGrid currentDate={currentDate} tasks={tasks} />
       <Legend />
       
       <footer className="calendar-footer">
         <p>© 2025 ProjectIve. All rights reserved.</p>
       </footer>
     </div>
-  )
+  );
 }
 
-export default CalendarView
+export default CalendarView;
