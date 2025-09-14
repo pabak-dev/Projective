@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ProjectController extends Controller
 {
@@ -16,15 +17,20 @@ class ProjectController extends Controller
     // 🔹 নতুন project create
     public function store(Request $request)
     {
-        // Validation
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'description' => 'nullable|string',
-            'status'      => 'nullable|in:active,archived,completed',
-            'due_date'    => 'nullable|date',
         ]);
 
-        $project = Project::create($validated);
+        $project = Auth::user()->projects()->create([
+            'name' => $validated['name'],
+            'description' => $validated['description'],
+            'user_id' => Auth::id(), // Set the owner
+        ]);
+
+        // Attach the user as a member with the 'owner' role
+        $project->members()->attach(Auth::id(), ['role' => 'owner']);
+
 
         return response()->json($project, 201);
     }
