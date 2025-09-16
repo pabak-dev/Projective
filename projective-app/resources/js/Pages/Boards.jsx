@@ -14,10 +14,15 @@ import {
     X,
     Info,
     GitBranch,
+    UserPlus,
+    Edit,
+    Trash2,
 } from "lucide-react";
 import Sidebar from "@/Components/Sidebar";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
+import SecondaryButton from "@/Components/SecondaryButton";
+import DangerButton from "@/Components/DangerButton";
 import TextInput from "@/Components/TextInput";
 import InputLabel from "@/Components/InputLabel";
 
@@ -31,12 +36,18 @@ export default function Boards() {
         review: [],
         done: [],
     });
-    const [users, setUsers] = useState([]);
+    const [users, setUsers] = useState([]); // For assignee dropdown
+    const [allUsers, setAllUsers] = useState([]); // For member management
 
     // Modal State
     const [selectedTask, setSelectedTask] = useState(null);
     const [isNewProjectModalOpen, setNewProjectModalOpen] = useState(false);
     const [isProjectDetailsModalOpen, setProjectDetailsModalOpen] =
+        useState(false);
+    const [isManageMembersModalOpen, setManageMembersModalOpen] =
+        useState(false);
+    const [isEditProjectModalOpen, setEditProjectModalOpen] = useState(false);
+    const [isConfirmDeleteModalOpen, setConfirmDeleteModalOpen] =
         useState(false);
     const [comments, setComments] = useState([]);
     const [attachments, setAttachments] = useState([]);
@@ -55,21 +66,22 @@ export default function Boards() {
     });
     const [newComment, setNewComment] = useState("");
     const [selectedFile, setSelectedFile] = useState(null);
-    const [selectedUser, setSelectedUser] = useState("");
+    const [selectedUser, setSelectedUser] = useState(""); // For assigning user to task
+    const [userToAdd, setUserToAdd] = useState(""); // For adding member to project
 
     const { auth } = usePage().props;
+    const isOwner = selectedProject && auth.user.id === selectedProject.user_id;
 
     // --- DATA FETCHING ---
     useEffect(() => {
         fetchProjects();
-        fetchUsers();
+        fetchUsers(); // Fetches all users for both assignees and member management
     }, []);
 
     useEffect(() => {
         if (selectedProject) {
             fetchTasks(selectedProject.id);
         } else {
-            // Clear tasks if no project is selected
             setTasks({ todo: [], in_progress: [], review: [], done: [] });
         }
     }, [selectedProject]);
@@ -78,8 +90,13 @@ export default function Boards() {
         try {
             const res = await axios.get("/api/projects");
             setProjects(res.data);
-            if (res.data.length > 0) {
+            if (
+                res.data.length > 0 &&
+                !projects.some((p) => p.id === selectedProject?.id)
+            ) {
                 setSelectedProject(res.data[0]);
+            } else if (res.data.length === 0) {
+                setSelectedProject(null);
             }
         } catch (error) {
             console.error("Failed to fetch projects:", error);
@@ -106,8 +123,13 @@ export default function Boards() {
     };
 
     const fetchUsers = async () => {
-        const res = await axios.get("/api/users");
-        setUsers(res.data);
+        try {
+            const res = await axios.get("/api/users");
+            setUsers(res.data);
+            setAllUsers(res.data);
+        } catch (error) {
+            console.error("Failed to fetch users:", error);
+        }
     };
 
     // --- CORE KANBAN LOGIC ---
@@ -151,8 +173,10 @@ export default function Boards() {
     const handleCreateProject = async (e) => {
         e.preventDefault();
         try {
-            await axios.post("/api/projects", newProjectData);
-            fetchProjects();
+            const res = await axios.post("/api/projects", newProjectData);
+            const newProjects = [...projects, res.data];
+            setProjects(newProjects);
+            setSelectedProject(res.data);
             setNewProjectModalOpen(false);
             setNewProjectData({
                 name: "",
@@ -161,10 +185,80 @@ export default function Boards() {
             });
         } catch (error) {
             console.error("Failed to create project:", error);
-            // You can add user-facing error handling here
         }
     };
 
+    const handleUpdateProject = async (e) => {
+        e.preventDefault();
+        try {
+            const res = await axios.put(
+                `/api/projects/${selectedProject.id}`,
+                newProjectData
+            );
+            const updatedProjects = projects.map((p) =>
+                p.id === res.data.id ? res.data : p
+            );
+            setProjects(updatedProjects);
+            setSelectedProject(res.data);
+            setEditProjectModalOpen(false);
+        } catch (error) {
+            console.error("Failed to update project:", error);
+        }
+    };
+
+    const handleDeleteProject = async () => {
+        try {
+            await axios.delete(`/api/projects/${selectedProject.id}`);
+            const updatedProjects = projects.filter(
+                (p) => p.id !== selectedProject.id
+            );
+            setProjects(updatedProjects);
+            setSelectedProject(
+                updatedProjects.length > 0 ? updatedProjects[0] : null
+            );
+            setConfirmDeleteModalOpen(false);
+        } catch (error) {
+            console.error("Failed to delete project:", error);
+        }
+    };
+
+    const handleAddMember = async (e) => {
+        e.preventDefault();
+        if (!userToAdd) return;
+        try {
+            const res = await axios.post(
+                `/api/projects/${selectedProject.id}/members`,
+                { user_id: userToAdd }
+            );
+            const updatedProject = { ...selectedProject, members: res.data };
+            const updatedProjects = projects.map((p) =>
+                p.id === updatedProject.id ? updatedProject : p
+            );
+            setProjects(updatedProjects);
+            setSelectedProject(updatedProject);
+            setUserToAdd("");
+        } catch (error) {
+            console.error("Failed to add member:", error);
+        }
+    };
+
+    const handleRemoveMember = async (userId) => {
+        try {
+            const res = await axios.delete(
+                `/api/projects/${selectedProject.id}/members/${userId}`
+            );
+            const updatedProject = { ...selectedProject, members: res.data };
+            const updatedProjects = projects.map((p) =>
+                p.id === updatedProject.id ? updatedProject : p
+            );
+            setProjects(updatedProjects);
+            setSelectedProject(updatedProject);
+        } catch (error) {
+            console.error("Failed to remove member:", error);
+        }
+    };
+
+    // --- TASK MANAGEMENT (MODAL) ---
     const openTaskModal = async (task) => {
         const res = await axios.get(`/api/tasks/${task.id}`);
         setSelectedTask(res.data);
@@ -180,6 +274,7 @@ export default function Boards() {
             );
         });
         setTasks(newTasks);
+        // Re-fetch all tasks to ensure counts are updated correctly
         fetchTasks(selectedProject.id);
     };
 
@@ -269,7 +364,10 @@ export default function Boards() {
         overdue: Object.values(tasks)
             .flat()
             .filter(
-                (t) => new Date(t.due_date) < new Date() && t.status !== "done"
+                (t) =>
+                    t.due_date &&
+                    new Date(t.due_date) < new Date() &&
+                    t.status !== "done"
             ).length,
     };
 
@@ -295,6 +393,7 @@ export default function Boards() {
                 </div>
                 <span
                     className={`font-medium ${
+                        task.due_date &&
                         new Date(task.due_date) < new Date() &&
                         task.status !== "done"
                             ? "text-red-500"
@@ -342,10 +441,46 @@ export default function Boards() {
                                     >
                                         <Info size={16} />
                                     </button>
-                                    <button className="px-4 py-2 border rounded-md text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 flex items-center">
-                                        <Plus size={16} className="mr-1" /> Add
-                                        Task
-                                    </button>
+                                    {isOwner && (
+                                        <>
+                                            <button
+                                                onClick={() =>
+                                                    setManageMembersModalOpen(
+                                                        true
+                                                    )
+                                                }
+                                                className="p-2 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-100"
+                                                title="Manage Members"
+                                            >
+                                                <UserPlus size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setNewProjectData(
+                                                        selectedProject
+                                                    );
+                                                    setEditProjectModalOpen(
+                                                        true
+                                                    );
+                                                }}
+                                                className="p-2 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-100"
+                                                title="Edit Project"
+                                            >
+                                                <Edit size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() =>
+                                                    setConfirmDeleteModalOpen(
+                                                        true
+                                                    )
+                                                }
+                                                className="p-2 border rounded-md text-sm font-medium text-white bg-gray-800 hover:bg-gray-700"
+                                                title="Delete Project"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
@@ -410,7 +545,7 @@ export default function Boards() {
                                                     <div
                                                         ref={provided.innerRef}
                                                         {...provided.droppableProps}
-                                                        className="bg-white p-4 rounded-lg border border-gray-200"
+                                                        className="bg-gray-100 p-4 rounded-lg border border-gray-200 flex flex-col"
                                                     >
                                                         <div className="flex justify-between items-center mb-4">
                                                             <h2 className="font-bold text-gray-700">
@@ -423,7 +558,7 @@ export default function Boards() {
                                                                 }
                                                             </span>
                                                         </div>
-                                                        <div className="min-h-[200px]">
+                                                        <div className="min-h-[200px] flex-grow">
                                                             {tasks[key].map(
                                                                 (
                                                                     task,
@@ -471,6 +606,13 @@ export default function Boards() {
                                                                             .value,
                                                                     })
                                                                 }
+                                                                onKeyDown={(
+                                                                    e
+                                                                ) =>
+                                                                    e.key ===
+                                                                        "Enter" &&
+                                                                    addTask(key)
+                                                                }
                                                                 placeholder="Add a card..."
                                                                 className="border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 rounded-md shadow-sm w-full text-sm"
                                                             />
@@ -498,14 +640,15 @@ export default function Boards() {
                                     No projects found.
                                 </p>
                                 <p className="text-gray-400 mt-2">
-                                    Create a new project in the sidebar to get
-                                    started.
+                                    Create a new project to get started.
                                 </p>
                             </div>
                         </div>
                     )}
                 </main>
             </div>
+
+            {/* --- ALL MODALS --- */}
 
             {/* Create New Project Modal */}
             <Modal
@@ -518,9 +661,12 @@ export default function Boards() {
                     </h2>
                     <div className="mt-6 space-y-4">
                         <div>
-                            <InputLabel htmlFor="name" value="Project Name" />
+                            <InputLabel
+                                htmlFor="create-name"
+                                value="Project Name"
+                            />
                             <TextInput
-                                id="name"
+                                id="create-name"
                                 className="mt-1 block w-full"
                                 value={newProjectData.name}
                                 onChange={(e) =>
@@ -534,11 +680,11 @@ export default function Boards() {
                         </div>
                         <div>
                             <InputLabel
-                                htmlFor="description"
+                                htmlFor="create-description"
                                 value="Description"
                             />
                             <textarea
-                                id="description"
+                                id="create-description"
                                 rows="3"
                                 className="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
                                 value={newProjectData.description}
@@ -552,11 +698,11 @@ export default function Boards() {
                         </div>
                         <div>
                             <InputLabel
-                                htmlFor="vcs_link"
+                                htmlFor="create-vcs_link"
                                 value="Version Control Link (e.g., GitHub)"
                             />
                             <TextInput
-                                id="vcs_link"
+                                id="create-vcs_link"
                                 type="url"
                                 className="mt-1 block w-full"
                                 value={newProjectData.version_control_link}
@@ -573,6 +719,105 @@ export default function Boards() {
                         <PrimaryButton>Create Project</PrimaryButton>
                     </div>
                 </form>
+            </Modal>
+
+            {/* Edit Project Modal */}
+            <Modal
+                show={isEditProjectModalOpen}
+                onClose={() => setEditProjectModalOpen(false)}
+            >
+                <form onSubmit={handleUpdateProject} className="p-6">
+                    <h2 className="text-lg font-medium text-gray-900">
+                        Edit Project
+                    </h2>
+                    <div className="mt-6 space-y-4">
+                        <div>
+                            <InputLabel
+                                htmlFor="edit-name"
+                                value="Project Name"
+                            />
+                            <TextInput
+                                id="edit-name"
+                                className="mt-1 block w-full"
+                                value={newProjectData.name}
+                                onChange={(e) =>
+                                    setNewProjectData({
+                                        ...newProjectData,
+                                        name: e.target.value,
+                                    })
+                                }
+                                required
+                            />
+                        </div>
+                        <div>
+                            <InputLabel
+                                htmlFor="edit-description"
+                                value="Description"
+                            />
+                            <textarea
+                                id="edit-description"
+                                rows="3"
+                                className="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                value={newProjectData.description}
+                                onChange={(e) =>
+                                    setNewProjectData({
+                                        ...newProjectData,
+                                        description: e.target.value,
+                                    })
+                                }
+                            ></textarea>
+                        </div>
+                        <div>
+                            <InputLabel
+                                htmlFor="edit-vcs_link"
+                                value="Version Control Link (e.g., GitHub)"
+                            />
+                            <TextInput
+                                id="edit-vcs_link"
+                                type="url"
+                                className="mt-1 block w-full"
+                                value={newProjectData.version_control_link}
+                                onChange={(e) =>
+                                    setNewProjectData({
+                                        ...newProjectData,
+                                        version_control_link: e.target.value,
+                                    })
+                                }
+                            />
+                        </div>
+                    </div>
+                    <div className="mt-6 flex justify-end">
+                        <PrimaryButton>Save Changes</PrimaryButton>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Confirm Delete Modal */}
+            <Modal
+                show={isConfirmDeleteModalOpen}
+                onClose={() => setConfirmDeleteModalOpen(false)}
+                maxWidth="sm"
+            >
+                <div className="p-6">
+                    <h2 className="text-lg font-medium text-gray-900">
+                        Are you sure?
+                    </h2>
+                    <p className="mt-2 text-sm text-gray-600">
+                        This action cannot be undone. This will permanently
+                        delete the "{selectedProject?.name}" project and all of
+                        its associated data.
+                    </p>
+                    <div className="mt-6 flex justify-end space-x-2">
+                        <SecondaryButton
+                            onClick={() => setConfirmDeleteModalOpen(false)}
+                        >
+                            Cancel
+                        </SecondaryButton>
+                        <DangerButton onClick={handleDeleteProject}>
+                            Delete
+                        </DangerButton>
+                    </div>
+                </div>
             </Modal>
 
             {/* Project Details Modal */}
@@ -596,22 +841,85 @@ export default function Boards() {
                                     rel="noopener noreferrer"
                                     className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center"
                                 >
-                                    <GitBranch size={16} className="mr-2" />
+                                    <GitBranch size={16} className="mr-2" />{" "}
                                     Version Control
                                 </a>
                             </div>
                         )}
                         <div className="mt-6 flex justify-end">
-                            <PrimaryButton
+                            <SecondaryButton
                                 onClick={() =>
                                     setProjectDetailsModalOpen(false)
                                 }
                             >
                                 Close
-                            </PrimaryButton>
+                            </SecondaryButton>
                         </div>
                     </div>
                 )}
+            </Modal>
+
+            {/* Manage Members Modal */}
+            <Modal
+                show={isManageMembersModalOpen}
+                onClose={() => setManageMembersModalOpen(false)}
+            >
+                <div className="p-6">
+                    <h2 className="text-lg font-medium text-gray-900 mb-4">
+                        Manage Team Members
+                    </h2>
+                    <form
+                        onSubmit={handleAddMember}
+                        className="flex items-center gap-2 mb-6"
+                    >
+                        <select
+                            value={userToAdd}
+                            onChange={(e) => setUserToAdd(e.target.value)}
+                            className="border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 rounded-md shadow-sm w-full text-sm"
+                        >
+                            <option value="">Select a user to add</option>
+                            {allUsers
+                                .filter(
+                                    (user) =>
+                                        !selectedProject?.members.some(
+                                            (member) => member.id === user.id
+                                        )
+                                )
+                                .map((user) => (
+                                    <option key={user.id} value={user.id}>
+                                        {user.name}
+                                    </option>
+                                ))}
+                        </select>
+                        <PrimaryButton type="submit" disabled={!userToAdd}>
+                            Add
+                        </PrimaryButton>
+                    </form>
+                    <div className="space-y-2">
+                        {selectedProject?.members.map((member) => (
+                            <div
+                                key={member.id}
+                                className="flex justify-between items-center bg-gray-50 p-2 rounded-md"
+                            >
+                                <span className="text-sm font-medium">
+                                    {member.name}{" "}
+                                    {member.id === selectedProject.user_id &&
+                                        "(Owner)"}
+                                </span>
+                                {member.id !== selectedProject.user_id && (
+                                    <button
+                                        onClick={() =>
+                                            handleRemoveMember(member.id)
+                                        }
+                                        className="text-red-500 hover:text-red-700 text-xs font-bold"
+                                    >
+                                        REMOVE
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </Modal>
 
             {/* Task Details Modal */}
@@ -713,7 +1021,7 @@ export default function Boards() {
                         </div>
                         <div className="mt-6">
                             <h3 className="text-sm font-medium text-gray-500 mb-2 flex items-center">
-                                <Paperclip size={14} className="mr-2" />
+                                <Paperclip size={14} className="mr-2" />{" "}
                                 Attachments
                             </h3>
                             <div className="space-y-2">
@@ -760,7 +1068,7 @@ export default function Boards() {
                         </div>
                         <div className="mt-6">
                             <h3 className="text-sm font-medium text-gray-500 mb-2 flex items-center">
-                                <MessageSquare size={14} className="mr-2" />
+                                <MessageSquare size={14} className="mr-2" />{" "}
                                 Activity
                             </h3>
                             <div className="space-y-3">

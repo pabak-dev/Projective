@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class ProjectController extends Controller
 {
@@ -33,6 +34,31 @@ class ProjectController extends Controller
 
     public function show(Project $project)
     {
+        Gate::authorize('view', $project);
         return response()->json($project->load(['owner:id,name', 'members:id,name']));
+    }
+
+    public function update(Request $request, Project $project)
+    {
+        Gate::authorize('update', $project);
+
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'description' => 'nullable|string',
+            'version_control_link' => 'nullable|url|max:255',
+        ]);
+
+        $project->update($validated);
+
+        return response()->json($project->load('owner:id,name', 'members:id,name'));
+    }
+
+    public function destroy(Project $project)
+    {
+        Gate::authorize('delete', $project);
+
+        $project->delete();
+
+        return response()->json(null, 204);
     }
 }

@@ -10,6 +10,7 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\ProjectMemberController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -74,6 +75,13 @@ Route::middleware('auth')->prefix('api')->group(function () {
     Route::get('/projects', [ProjectController::class, 'index']);
     Route::post('/projects', [ProjectController::class, 'store']);
     Route::get('/projects/{project}', [ProjectController::class, 'show']);
+
+    Route::put('/projects/{project}', [ProjectController::class, 'update']);
+    Route::delete('/projects/{project}', [ProjectController::class, 'destroy']);
+
+    // Project Member Routes
+    Route::post('/projects/{project}/members', [ProjectMemberController::class, 'store']);
+    Route::delete('/projects/{project}/members/{user}', [ProjectMemberController::class, 'destroy']);
 
     // Task Routes
     Route::get('/projects/{projectId}/tasks', [TaskController::class, 'index']);
