@@ -11,7 +11,7 @@ class ProjectController extends Controller
     // 🔹 সব project list
     public function index()
     {
-        return response()->json(Project::all());
+        return Auth::user()->projects()->with(['owner:id,name', 'members:id,name'])->latest()->get();
     }
 
     // 🔹 নতুন project create
@@ -20,18 +20,19 @@ class ProjectController extends Controller
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'description' => 'nullable|string',
+            'version_control_link' => 'nullable|url|max:255',
         ]);
 
-        $project = Auth::user()->projects()->create([
-            'name' => $validated['name'],
-            'description' => $validated['description'],
-            'user_id' => Auth::id(), // Set the owner
-        ]);
+        $project = Project::create(array_merge($validated, ['user_id' => Auth::id()]));
 
         // Attach the user as a member with the 'owner' role
         $project->members()->attach(Auth::id(), ['role' => 'owner']);
 
+        return response()->json($project->load('owner'), 201);
+    }
 
-        return response()->json($project, 201);
+    public function show(Project $project)
+    {
+        return response()->json($project->load(['owner:id,name', 'members:id,name']));
     }
 }

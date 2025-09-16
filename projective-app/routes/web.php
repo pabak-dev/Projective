@@ -5,6 +5,11 @@ use Illuminate\Foundation\Application;
 use App\Http\Controllers\LeaderboardController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\CommentController;
+use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\TaskController;
+use App\Http\Controllers\UserController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -60,6 +65,32 @@ Route::middleware('auth')->group(function () {
 
     // 2. Make sure this line uses the controller
     Route::get('/leaderboard', [LeaderboardController::class, 'index'])->name('leaderboard');
+});
+
+Route::middleware('auth')->prefix('api')->group(function () {
+    Route::get('/users', [UserController::class, 'index']);
+
+    // Project Routes
+    Route::get('/projects', [ProjectController::class, 'index']);
+    Route::post('/projects', [ProjectController::class, 'store']);
+    Route::get('/projects/{project}', [ProjectController::class, 'show']);
+
+    // Task Routes
+    Route::get('/projects/{projectId}/tasks', [TaskController::class, 'index']);
+    Route::post('/projects/{projectId}/tasks', [TaskController::class, 'store']);
+    Route::get('/tasks/{task}', [TaskController::class, 'show']);
+    Route::put('/tasks/{task}', [TaskController::class, 'update']);
+    Route::delete('/tasks/{task}', [TaskController::class, 'destroy']);
+    Route::post('/tasks/{task}/assign', [TaskController::class, 'assignUser']);
+    Route::post('/tasks/{task}/unassign', [TaskController::class, 'unassignUser']);
+
+    // Comment Routes
+    Route::post('/tasks/{task}/comments', [CommentController::class, 'store']);
+    Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
+
+    // Attachment Routes
+    Route::post('/tasks/{task}/attachments', [AttachmentController::class, 'store']);
+    Route::delete('/attachments/{attachment}', [AttachmentController::class, 'destroy']);
 });
 
 require __DIR__.'/auth.php';
