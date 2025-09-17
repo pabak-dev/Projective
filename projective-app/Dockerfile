@@ -4,7 +4,7 @@ FROM php:8.3-fpm-bookworm
 # Set working directory
 WORKDIR /var/www
 
-# Install system dependencies for PHP, NGINX, Supervisor, and Node.js using apt-get
+# Install system dependencies, including build-essential for Node.js native modules
 RUN apt-get update && apt-get install -y \
     nginx \
     supervisor \
@@ -19,13 +19,12 @@ RUN apt-get update && apt-get install -y \
     unzip \
     nodejs \
     npm \
+    build-essential \
     --no-install-recommends && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
-# Note: mbstring, exif, pcntl, bcmath, sockets are often included or enabled by default in Debian images,
-# but we install them explicitly to be safe.
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd pdo_mysql zip opcache mbstring exif pcntl bcmath sockets
 
@@ -38,9 +37,9 @@ COPY composer.json composer.lock ./
 RUN composer install --no-interaction --no-plugins --no-scripts --no-dev --prefer-dist --optimize-autoloader
 
 # === Frontend Build ===
-# Copy package dependency files and install
+# Copy package dependency files and perform a clean install with `npm ci`
 COPY package.json package-lock.json ./
-RUN npm install
+RUN npm ci
 
 # Build frontend assets for production
 RUN npm run build
