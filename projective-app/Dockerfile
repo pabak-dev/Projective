@@ -73,11 +73,9 @@ WORKDIR /var/www
 # Copy vendor dependencies from the composer stage
 COPY --from=composer_vendor /var/www/vendor ./vendor
 
-# Copy application code (excluding files in .dockerignore)
-COPY . .
-
-# Copy compiled assets from the frontend builder stage
 COPY --from=frontend_builder /app/public/build ./public/build
+
+COPY . .
 
 # Create storage directories and set correct permissions
 RUN mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data \
