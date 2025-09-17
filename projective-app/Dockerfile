@@ -42,8 +42,8 @@ RUN composer install --no-interaction --no-scripts --no-dev --prefer-dist --opti
 #----------------------------------------------------------------
 # Stage 3: Frontend Asset Builder
 #----------------------------------------------------------------
-# Use a Node.js LTS (Long-Term Support) version for stability
-FROM node:20-alpine AS frontend_builder
+# Use a Node.js LTS version based on Debian for better compatibility
+FROM node:20-bookworm AS frontend_builder
 
 WORKDIR /app
 
