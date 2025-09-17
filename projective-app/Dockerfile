@@ -1,39 +1,32 @@
-# Use the official PHP 8.3 FPM image on a lightweight Alpine Linux base
-FROM php:8.3-fpm-alpine AS base
+# Use the official PHP 8.3 FPM image on a Debian (Bookworm) base
+FROM php:8.3-fpm-bookworm
 
 # Set working directory
 WORKDIR /var/www
 
-# Install system dependencies for PHP, NGINX, Supervisor, and Node.js
-RUN apk add --no-cache \
+# Install system dependencies for PHP, NGINX, Supervisor, and Node.js using apt-get
+RUN apt-get update && apt-get install -y \
     nginx \
     supervisor \
     curl \
     libpng-dev \
     libzip-dev \
-    jpeg-dev \
-    freetype-dev \
-    oniguruma-dev \
-    libxml2-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    git \
     zip \
     unzip \
-    git \
-    linux-headers \
     nodejs \
-    npm
+    npm \
+    --no-install-recommends && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
+# Note: mbstring, exif, pcntl, bcmath, sockets are often included or enabled by default in Debian images,
+# but we install them explicitly to be safe.
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install \
-    gd \
-    pdo_mysql \
-    mbstring \
-    exif \
-    pcntl \
-    bcmath \
-    sockets \
-    zip \
-    opcache
+    && docker-php-ext-install gd pdo_mysql zip opcache mbstring exif pcntl bcmath sockets
 
 # Get latest Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -61,7 +54,7 @@ RUN chown -R www-data:www-data storage bootstrap/cache \
 
 # Copy Supervisor and NGINX configuration files
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY nginx/default.conf /etc/nginx/http.d/default.conf
+COPY nginx/default.conf /etc/nginx/sites-available/default
 
 # Expose port 80 for the NGINX web server
 EXPOSE 80
