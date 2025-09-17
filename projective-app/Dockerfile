@@ -17,7 +17,8 @@ RUN apk add --no-cache \
     libxml2-dev \
     zip \
     unzip \
-    git
+    git \
+    linux-headers
 
 # Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
