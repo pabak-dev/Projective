@@ -25,6 +25,7 @@ import SecondaryButton from "@/Components/SecondaryButton";
 import DangerButton from "@/Components/DangerButton";
 import TextInput from "@/Components/TextInput";
 import InputLabel from "@/Components/InputLabel";
+import ChatAssistant from "@/Components/ChatAssistant";
 
 export default function Boards() {
     // Page State
@@ -353,6 +354,13 @@ export default function Boards() {
                                                         ))}
                                                         {provided.placeholder}
                                                     </div>
+
+                                                )}
+                                            </Droppable>
+                                        )
+                                    )}
+                                    {selectedProject && <ChatAssistant projectId={selectedProject.id} />}
+
                                                     <div className="mt-3">
                                                         <input value={newTask[key]} onChange={(e) => setNewTask({ ...newTask, [key]: e.target.value })} onKeyDown={(e) => e.key === "Enter" && addTask(key)} placeholder="Add a card..." className="border-gray-300 rounded-md shadow-sm w-full text-sm"/>
                                                         <button onClick={() => addTask(key)} className="mt-2 w-full text-center px-4 py-2 border rounded-md text-sm font-medium text-white bg-gray-800 hover:bg-gray-700">Add Card</button>
