@@ -48,9 +48,9 @@ FROM node:20-bookworm AS frontend_builder
 WORKDIR /app
 
 # Copy only package files to leverage cache
-COPY package.json package-lock.json ./
-# Use npm ci for faster, more reliable installs from lock file
-RUN npm ci
+COPY package.json ./
+# Use npm install to generate a fresh lockfile inside the container
+RUN npm install
 
 # Copy frontend source files
 COPY vite.config.js ./
