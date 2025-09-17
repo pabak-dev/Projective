@@ -4,11 +4,13 @@ FROM php:8.3-fpm-bookworm
 # Set working directory
 WORKDIR /var/www
 
-# Install system dependencies, including build-essential for Node.js native modules
+# === Install System Dependencies & Correct Node.js Version ===
+# Install dependencies, set up NodeSource for Node.js v22, then install Node.js
 RUN apt-get update && apt-get install -y \
     nginx \
     supervisor \
     curl \
+    gnupg \
     libpng-dev \
     libzip-dev \
     libjpeg-dev \
@@ -17,10 +19,13 @@ RUN apt-get update && apt-get install -y \
     git \
     zip \
     unzip \
-    nodejs \
-    npm \
     build-essential \
     --no-install-recommends && \
+    # Add the NodeSource repository for Node.js 22.x
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    # Install Node.js from the new repository
+    apt-get install -y nodejs && \
+    # Clean up
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
