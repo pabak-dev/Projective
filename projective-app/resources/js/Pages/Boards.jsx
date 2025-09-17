@@ -281,7 +281,7 @@ export default function Boards() {
             console.error("Failed to delete task:", error);
         }
     };
-
+    
     const updateTaskInState = (updatedTask) => {
         const newTasks = { ...tasks };
         Object.keys(newTasks).forEach((status) => {
@@ -970,7 +970,7 @@ export default function Boards() {
                                 </p>
                             </div>
                             <div className="flex items-center gap-2">
-
+                                {/* Only allow project owner or admin to delete task */}
                                 {isOwner && (
                                     <button
                                         onClick={() => handleTaskDelete(selectedTask.id)}
@@ -989,6 +989,7 @@ export default function Boards() {
                         </div>
 
                         <div className="mt-4 space-y-4">
+                            {/* Assignee Section - Editable by project owner */}
                             <div className="flex items-center space-x-2">
                                 <span className="font-semibold">Assignee:</span>
                                 {isOwner ? (
