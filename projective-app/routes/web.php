@@ -11,6 +11,7 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProjectMemberController;
+use App\Http\Controllers\CalendarController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -51,6 +52,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/leaderboard', function () {
         return Inertia::render('Leaderboard');
     })->name('leaderboard');
+
+     Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar');
+
 });
 
 // Profile management
@@ -59,6 +63,8 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+
 
 
 Route::middleware('auth')->group(function () {

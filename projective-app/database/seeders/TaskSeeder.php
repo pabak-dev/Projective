@@ -2,33 +2,42 @@
 
 namespace Database\Seeders;
 
-use App\Models\Task;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use App\Models\Task;
 
 class TaskSeeder extends Seeder
 {
-    public function run($user, $project): void
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
     {
+        // Comment out or delete the following lines to prevent
+        // automatic task creation during seeding.
+
+        /*
         Task::create([
-            'project_id'   => $project->id,
-            'title'        => 'Design new landing page',
-            'description'  => 'Create wireframes and mockups for the new product landing page',
-            'status'       => 'todo',
-            'due_date'     => now()->addDays(7),
-            'assignee_id'  => $user->id,
-            'comments_count' => 3,
-            'attachments_count' => 2,
+            'title' => 'Design new landing page',
+            'description' => 'Create a modern and responsive design for the new landing page.',
+            'status' => 'done',
+            'priority' => 'high',
+            'type' => 'task',
+            'due_date' => '2025-09-08',
+            'project_id' => 1,
+            'assignee_id' => 1,
         ]);
 
         Task::create([
-            'project_id'   => $project->id,
-            'title'        => 'API Documentation',
-            'description'  => 'Update API documentation for v2.0 release',
-            'status'       => 'todo',
-            'due_date'     => now()->addDays(10),
-            'assignee_id'  => $user->id,
-            'comments_count' => 2,
-            'attachments_count' => 1,
+            'title' => 'API Integration',
+            'description' => 'Integrate the new third-party API for payment processing.',
+            'status' => 'in_progress',
+            'priority' => 'high',
+            'type' => 'task',
+            'due_date' => '2025-09-15',
+            'project_id' => 1,
+            'assignee_id' => 2,
         ]);
+        */
     }
 }
