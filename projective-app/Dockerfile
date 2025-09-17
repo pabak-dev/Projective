@@ -83,5 +83,8 @@ COPY --from=frontend_builder /app/public/build ./public/build
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
+# Clear any cached config/routes from local development
+RUN php artisan config:clear && php artisan route:clear
+
 EXPOSE 80
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
