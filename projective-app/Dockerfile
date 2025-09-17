@@ -4,8 +4,7 @@ FROM php:8.3-fpm-bookworm
 # Set working directory
 WORKDIR /var/www
 
-# === Install System Dependencies & Correct Node.js Version ===
-# Install dependencies, set up NodeSource for Node.js v22, then install Node.js
+# Install system dependencies & Node.js v22
 RUN apt-get update && apt-get install -y \
     nginx \
     supervisor \
@@ -21,11 +20,8 @@ RUN apt-get update && apt-get install -y \
     unzip \
     build-essential \
     --no-install-recommends && \
-    # Add the NodeSource repository for Node.js 22.x
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
-    # Install Node.js from the new repository
     apt-get install -y nodejs && \
-    # Clean up
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -37,32 +33,27 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # === Backend Build ===
-# Copy composer dependency files and install
 COPY composer.json composer.lock ./
 RUN composer install --no-interaction --no-plugins --no-scripts --no-dev --prefer-dist --optimize-autoloader
 
 # === Frontend Build ===
-# Copy package dependency files and perform a clean install with `npm ci`
 COPY package.json package-lock.json ./
 RUN npm ci
+
+# --- THIS IS THE FIX ---
+# Explicitly install the native Rollup dependency that npm fails to install correctly.
+RUN npm install --no-save @rollup/rollup-linux-x64-gnu
 
 # Build frontend assets for production
 RUN npm run build
 
 # === Final Setup ===
-# Copy the rest of the application files
 COPY . .
-
-# Set permissions for Laravel
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-# Copy Supervisor and NGINX configuration files
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY nginx/default.conf /etc/nginx/sites-available/default
 
-# Expose port 80 for the NGINX web server
 EXPOSE 80
-
-# Start Supervisor which will manage NGINX and PHP-FPM
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
