@@ -25,6 +25,7 @@ import SecondaryButton from "@/Components/SecondaryButton";
 import DangerButton from "@/Components/DangerButton";
 import TextInput from "@/Components/TextInput";
 import InputLabel from "@/Components/InputLabel";
+import ChatAssistant from "@/Components/ChatAssistant";
 
 export default function Boards() {
     // Page State
@@ -630,6 +631,7 @@ export default function Boards() {
                                             </Droppable>
                                         )
                                     )}
+                                    {selectedProject && <ChatAssistant projectId={selectedProject.id} />}
                                 </div>
                             </DragDropContext>
                         </div>
