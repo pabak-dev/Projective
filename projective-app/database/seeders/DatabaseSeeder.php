@@ -17,18 +17,7 @@ class DatabaseSeeder extends Seeder
             'password'=>bcrypt('password'),
         ]);
 
-        $project=Project::create([
-            'name'=>'Project Alpha',
-            'description'=>'Demo project for task board',
-        ]);
 
-        Task::create([
-            'project_id'=>$project->id,
-            'title'=>'Design new landing page',
-            'description'=>'Wireframes and mockups',
-            'status'=>'todo',
-            'due_date'=>now()->addDays(3),
-            'assignee_id'=>$user->id,
-        ]);
+        
     }
 }
