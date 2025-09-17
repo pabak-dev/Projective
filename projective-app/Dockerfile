@@ -4,7 +4,7 @@ FROM php:8.3-fpm-alpine AS base
 # Set working directory
 WORKDIR /var/www
 
-# Install system dependencies needed for Laravel
+# Install system dependencies for PHP, NGINX, Supervisor, and Node.js
 RUN apk add --no-cache \
     nginx \
     supervisor \
@@ -18,7 +18,9 @@ RUN apk add --no-cache \
     zip \
     unzip \
     git \
-    linux-headers
+    linux-headers \
+    nodejs \
+    npm
 
 # Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
@@ -36,22 +38,33 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 # Get latest Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy existing application directory contents
-COPY . .
-
-# Copy composer.json and composer.lock
+# === Backend Build ===
+# Copy composer dependency files and install
 COPY composer.json composer.lock ./
-
-# Install composer dependencies
 RUN composer install --no-interaction --no-plugins --no-scripts --no-dev --prefer-dist --optimize-autoloader
 
-# Re-copy the full application to include all files
+# === Frontend Build ===
+# Copy package dependency files and install
+COPY package.json package-lock.json ./
+RUN npm install
+
+# Build frontend assets for production
+RUN npm run build
+
+# === Final Setup ===
+# Copy the rest of the application files
 COPY . .
 
 # Set permissions for Laravel
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-# Expose port 9000 and start php-fpm server
-EXPOSE 9000
-CMD ["php-fpm"]
+# Copy Supervisor and NGINX configuration files
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY nginx/default.conf /etc/nginx/http.d/default.conf
+
+# Expose port 80 for the NGINX web server
+EXPOSE 80
+
+# Start Supervisor which will manage NGINX and PHP-FPM
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
