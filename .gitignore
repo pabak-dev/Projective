@@ -56,3 +56,5 @@ projective-app/storage/framework/cache/data
 projective-app/storage/framework/sessions
 projective-app/storage/framework/views
 projective-app/storage/debugbar
+projective-app/.env.dev
+projective-app/.env.prod
