@@ -79,8 +79,9 @@ COPY . .
 # Copy compiled assets from the frontend builder stage
 COPY --from=frontend_builder /app/public/build ./public/build
 
-# Set correct permissions for storage and bootstrap cache
-RUN chown -R www-data:www-data storage bootstrap/cache \
+# Create storage directories and set correct permissions
+RUN mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data \
+    && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
 # Clear any cached config/routes from local development
