@@ -10,9 +10,9 @@ class TaskController extends Controller
     public function index($projectId)
     {
         $tasks = Task::withCount(['comments','attachments'])
-                       ->with('assignedUser:id,name')
-                       ->where('project_id', $projectId)
-                       ->get();
+                        ->with('assignedUser:id,name')
+                        ->where('project_id', $projectId)
+                        ->get();
         return response()->json($tasks);
     }
 
@@ -67,13 +67,21 @@ class TaskController extends Controller
         $request->validate(['user_id' => 'required|exists:users,id']);
         $task->assignee_id = $request->user_id;
         $task->save();
-        return response()->json(['message' => 'User assigned successfully', 'task' => $task->loadCount(['comments','attachments'])->load(['assignedUser:id,name'])]);
+
+        return response()->json(
+            $task->loadCount(['comments','attachments'])
+                 ->load(['assignedUser:id,name'])
+        );
     }
 
     public function unassignUser(Task $task)
     {
         $task->assignee_id = null;
         $task->save();
-        return response()->json(['message' => 'User unassigned successfully', 'task' => $task->loadCount(['comments','attachments'])->load(['assignedUser:id,name'])]);
+
+        return response()->json(
+            $task->loadCount(['comments','attachments'])
+                 ->load(['assignedUser:id,name'])
+        );
     }
 }

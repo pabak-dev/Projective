@@ -17,6 +17,7 @@ import {
     UserPlus,
     Edit,
     Trash2,
+    User,
 } from "lucide-react";
 import Sidebar from "@/Components/Sidebar";
 import Modal from "@/Components/Modal";
@@ -42,6 +43,7 @@ export default function Boards() {
 
     // Modal State
     const [selectedTask, setSelectedTask] = useState(null);
+    const [isTaskModalOpen, setTaskModalOpen] = useState(false);
     const [isNewProjectModalOpen, setNewProjectModalOpen] = useState(false);
     const [isProjectDetailsModalOpen, setProjectDetailsModalOpen] = useState(false);
     const [isManageMembersModalOpen, setManageMembersModalOpen] = useState(false);
@@ -49,6 +51,10 @@ export default function Boards() {
     const [isConfirmDeleteModalOpen, setConfirmDeleteModalOpen] = useState(false);
     const [comments, setComments] = useState([]);
     const [attachments, setAttachments] = useState([]);
+    const [newComment, setNewComment] = useState("");
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [selectedUser, setSelectedUser] = useState(""); // For assigning user to task
+    const [userToAdd, setUserToAdd] = useState(""); // For adding member to project
 
     // Form & Input State
     const [newTask, setNewTask] = useState({
@@ -57,18 +63,16 @@ export default function Boards() {
         review: "",
         done: "",
     });
+
     const [newProjectData, setNewProjectData] = useState({
         name: "",
         description: "",
         version_control_link: "",
     });
-    const [newComment, setNewComment] = useState("");
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [selectedUser, setSelectedUser] = useState(""); // For assigning user to task
-    const [userToAdd, setUserToAdd] = useState(""); // For adding member to project
 
     const { auth } = usePage().props;
     const isOwner = selectedProject && auth.user.id === selectedProject.user_id;
+    const isAssignee = selectedTask && auth.user.id === selectedTask.assignee_id;
 
     // --- DATA FETCHING ---
     useEffect(() => {
@@ -101,7 +105,7 @@ export default function Boards() {
     const fetchTasks = async (projectId) => {
         if (!projectId) return;
         try {
-            const res = await axios.get(`/api/projects/${projectId}/tasks`);
+            const res = await axios.get(`/api/projects/${projectId}/tasks?with=assignedUser`);
             const grouped = { todo: [], in_progress: [], review: [], done: [] };
             if (res.data) {
                 res.data.forEach((t) => {
@@ -227,6 +231,17 @@ export default function Boards() {
         setSelectedTask(res.data);
         setComments(res.data.comments || []);
         setAttachments(res.data.attachments || []);
+        setTaskModalOpen(true);
+    };
+
+    const handleTaskDelete = async (taskId) => {
+        try {
+            await axios.delete(`/api/tasks/${taskId}`);
+            setTaskModalOpen(false);
+            fetchTasks(selectedProject.id); // Re-fetch all tasks to update the board
+        } catch (error) {
+            console.error("Failed to delete task:", error);
+        }
     };
     
     const closeTaskModal = () => {
@@ -266,7 +281,8 @@ export default function Boards() {
         setComments(comments.filter((c) => c.id !== id));
     };
 
-    const uploadAttachment = async () => {
+    const uploadAttachment = async (e) => {
+        e.preventDefault();
         if (!selectedTask || !selectedFile) return;
         const formData = new FormData();
         formData.append("file", selectedFile);
@@ -278,9 +294,58 @@ export default function Boards() {
     const deleteAttachment = async (id) => {
         await axios.delete(`/api/attachments/${id}`);
         setAttachments(attachments.filter((a) => a.id !== id));
+
+        updateTaskInState({
+            ...selectedTask,
+            attachments_count: selectedTask.attachments_count - 1,
+        });
     };
 
-    // --- RENDER LOGIC ---
+    const updateDueDate = async (date) => {
+        const res = await axios.put(`/api/tasks/${selectedTask.id}`, {
+            due_date: date,
+        });
+        setSelectedTask(res.data);
+        updateTaskInState(res.data);
+    };
+
+    const updateDescription = async (e) => {
+        const res = await axios.put(`/api/tasks/${selectedTask.id}`, {
+            description: e.target.value,
+        });
+        setSelectedTask(res.data);
+        updateTaskInState(res.data);
+    };
+
+    const assignTask = async (userId) => {
+        try {
+            let response;
+            if (userId) {
+                response = await axios.post(`/api/tasks/${selectedTask.id}/assign`, {
+                    user_id: userId
+                });
+            } else {
+                response = await axios.post(`/api/tasks/${selectedTask.id}/unassign`);
+            }
+
+            const updatedTask = response.data.task || response.data;
+            setSelectedTask(updatedTask);
+            updateTaskInState(updatedTask);
+        } catch (error) {
+            console.error("Failed to assign user:", error);
+        }
+    };
+
+    // Check if current user can manage comments and attachments
+    const canManageCommentsAndAttachments = () => {
+        if (!selectedTask) return false;
+        return isOwner || isAssignee;
+    };
+
+
+    };
+
+
     const stats = {
         total: Object.values(tasks).flat().length,
         inProgress: tasks.in_progress.length,
@@ -298,9 +363,25 @@ export default function Boards() {
     };
 
     const renderTaskCard = (task) => (
+
+        <div
+            className="bg-white p-3 rounded-md shadow-sm mb-3 border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => openTaskModal(task)}
+        >
+            <p className="font-semibold text-gray-800 text-sm mb-2">
+                {task.title}
+            </p>
+            {task.assignedUser && (
+                <div className="flex items-center text-xs text-gray-500 mb-2">
+                    <User size={12} className="mr-1" />
+                    {task.assignedUser.name}
+                </div>
+            )}
+
         <div className="bg-white p-3 rounded-md shadow-sm mb-3 border border-gray-200 cursor-pointer hover:shadow-md transition-shadow" onClick={() => openTaskModal(task)}>
             <p className="font-semibold text-gray-800 text-sm mb-2">{task.title}</p>
             <div className="flex justify-between items-center text-xs text-gray-500 mt-3">
+
                 <div className="flex items-center space-x-2">
                     <span>💬 {task.comments_count || 0}</span>
                     <span>📎 {task.attachments_count || 0}</span>
@@ -369,6 +450,7 @@ export default function Boards() {
                                             )}
                                         </Droppable>
                                     ))}
+
                                 </div>
                             </DragDropContext>
                         </div>
@@ -414,6 +496,95 @@ export default function Boards() {
             </Modal>
 
             {/* Task Details Modal */}
+
+            <Modal show={isTaskModalOpen} onClose={() => setTaskModalOpen(false)}>
+                {selectedTask && (
+                    <div className="p-6">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800">
+                                    {selectedTask.title}
+                                </h2>
+                                <p className="text-sm text-gray-600">
+                                    Status: {selectedTask.status}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+
+                                {isOwner && (
+                                    <button
+                                        onClick={() => handleTaskDelete(selectedTask.id)}
+                                        className="p-2 text-red-500 hover:text-red-700 transition-colors"
+                                    >
+                                        <Trash2 size={20} />
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setTaskModalOpen(false)}
+                                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 space-y-4">
+                            <div className="flex items-center space-x-2">
+                                <span className="font-semibold">Assignee:</span>
+                                {isOwner ? (
+                                    <select
+                                        value={selectedTask.assignee_id || ""}
+                                        onChange={(e) => assignTask(e.target.value)}
+                                        className="border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 rounded-md shadow-sm text-sm"
+                                    >
+                                        <option value="">Unassigned</option>
+                                        {users.map(user => (
+                                            <option key={user.id} value={user.id}>{user.name}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <span className="text-gray-600">
+                                        {selectedTask.assignedUser ? selectedTask.assignedUser.name : "Unassigned"}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Due Date Section - Only editable by project owner */}
+                            <div className="flex items-center space-x-2">
+                                <span className="font-semibold">Due Date:</span>
+                                <input
+                                    type="date"
+                                    value={selectedTask.due_date || ""}
+                                    onChange={(e) => {
+                                        const newDate = e.target.value;
+                                        setSelectedTask({ ...selectedTask, due_date: newDate });
+                                    }}
+                                    onBlur={() => updateDueDate(selectedTask.due_date)}
+                                    readOnly={!isOwner}
+                                    className={`block w-full text-sm rounded-md shadow-sm ${
+                                        !isOwner
+                                            ? "bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed"
+                                            : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                                    }`}
+                                />
+                            </div>
+
+                            {/* Description Section - Only editable by project owner */}
+                            <div>
+                                <span className="font-semibold">Description:</span>
+                                <textarea
+                                    value={selectedTask.description || ""}
+                                    onChange={(e) => setSelectedTask({ ...selectedTask, description: e.target.value })}
+                                    onBlur={updateDescription}
+                                    readOnly={!isOwner}
+                                    rows="3"
+                                    className={`mt-1 block w-full text-sm rounded-md shadow-sm ${
+                                        !isOwner
+                                            ? "bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed"
+                                            : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                                    }`}
+                                />
+
             <Modal show={selectedTask !== null} onClose={closeTaskModal} maxWidth="2xl">
                 {selectedTask && (
                     <div className="p-6">
@@ -437,6 +608,7 @@ export default function Boards() {
                             <div>
                                 <h3 className="text-sm font-medium text-gray-500 mb-2">Due Date</h3>
                                 <input type="date" value={selectedTask.due_date ? selectedTask.due_date.substring(0, 10) : ""} onChange={(e) => handleTaskUpdate('due_date', e.target.value)} className="border-gray-300 rounded-md shadow-sm w-full text-sm"/>
+
                             </div>
                             
                             {/* --- ADDED TYPE AND PRIORITY FIELDS --- */}
@@ -460,6 +632,116 @@ export default function Boards() {
                             )}
                         </div>
 
+                        {/* Attachments Section */}
+                        <div className="mt-6 border-t pt-4">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <Paperclip size={18} /> Attachments
+                                {canManageCommentsAndAttachments() && (
+                                    <span className="text-xs text-gray-500 ml-2">
+                                        (Only you and the project owner can add/remove)
+                                    </span>
+                                )}
+                            </h3>
+                            <ul className="text-sm space-y-2 mt-2">
+                                {attachments.map((attachment) => (
+                                    <li
+                                        key={attachment.id}
+                                        className="flex justify-between items-center py-2 px-3 bg-gray-100 rounded-md"
+                                    >
+                                        <a
+                                            href={attachment.file_path}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline"
+                                        >
+                                            {attachment.file_name}
+                                        </a>
+                                        {canManageCommentsAndAttachments() && (
+                                            <DangerButton
+                                                onClick={() => deleteAttachment(attachment.id)}
+                                                className="py-1 px-2 text-xs"
+                                            >
+                                                Remove
+                                            </DangerButton>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                            {canManageCommentsAndAttachments() && (
+                                <form onSubmit={uploadAttachment} className="mt-4 flex gap-2">
+                                    <input
+                                        type="file"
+                                        onChange={(e) => setSelectedFile(e.target.files[0])}
+                                        className="block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-md file:border-0
+                                file:text-sm file:font-semibold
+                                file:bg-indigo-50 file:text-indigo-700
+                                hover:file:bg-indigo-100"
+                                    />
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700"
+                                        disabled={!selectedFile}
+                                    >
+                                        Upload
+                                    </button>
+                                </form>
+                            )}
+                        </div>
+
+                        {/* Comments Section */}
+                        <div className="mt-6 border-t pt-4">
+                            <h3 className="text-lg font-bold mb-2">Comments
+                                {canManageCommentsAndAttachments() && (
+                                    <span className="text-xs text-gray-500 ml-2">
+                                        (Only you and the project owner can add/remove)
+                                    </span>
+                                )}
+                            </h3>
+                            <div className="bg-gray-100 p-3 rounded-md max-h-40 overflow-y-auto">
+                                {comments.map((c) => (
+                                    <div
+                                        key={c.id}
+                                        className="mb-3 p-2 bg-white rounded-md shadow-sm"
+                                    >
+                                        <p className="text-sm text-gray-700">
+                                            {c.content}
+                                        </p>
+                                        <div className="flex justify-between items-center mt-1">
+                                            <p className="text-xs text-gray-400">
+                                                by {c.user?.name} at{" "}
+                                                {new Date(c.created_at).toLocaleString()}
+                                            </p>
+                                            {(c.user_id === auth.user.id || isOwner) && (
+                                                <button
+                                                    onClick={() => deleteComment(c.id)}
+                                                    className="text-gray-400 hover:text-red-500 text-xs font-bold"
+                                                >
+                                                    DELETE
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            {canManageCommentsAndAttachments() && (
+                                <div className="mt-4 flex gap-2">
+                                    <input
+                                        value={newComment}
+                                        onChange={(e) => setNewComment(e.target.value)}
+                                        placeholder="Write a comment..."
+                                        className="border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 rounded-md shadow-sm w-full text-sm"
+                                    />
+                                    <button
+                                        onClick={addComment}
+                                        className="px-4 py-2 border rounded-md text-sm font-medium text-white bg-gray-800 hover:bg-gray-700"
+                                    >
+                                        Send
+                                    </button>
+                                </div>
+                            )}
+
                         {/* --- EXISTING FUNCTIONALITIES --- */}
                         <div>
                             <h3 className="text-sm font-medium text-gray-500 mb-2">Description</h3>
@@ -474,6 +756,7 @@ export default function Boards() {
                             <h3 className="text-sm font-medium text-gray-500 mb-2 flex items-center"><MessageSquare size={14} className="mr-2" /> Activity</h3>
                             <div className="space-y-3">{comments.map((c) => (<div key={c.id} className="flex items-start gap-3"><div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-500 text-sm">{c.user?.name.charAt(0)}</div><div className="flex-1"><p className="text-sm"><span className="font-bold">{c.user?.name}</span><span className="text-gray-500 text-xs ml-2">{new Date(c.created_at).toLocaleString()}</span></p><div className="bg-gray-100 p-2 rounded-md text-sm">{c.content}</div></div><button onClick={() => deleteComment(c.id)} className="text-gray-400 hover:text-red-500 text-xs font-bold mt-1">DELETE</button></div>))}</div>
                             <div className="mt-4 flex gap-2"><input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Write a comment..." className="border-gray-300 rounded-md shadow-sm w-full text-sm" /><button onClick={addComment} className="px-4 py-2 border rounded-md text-sm font-medium text-white bg-gray-800 hover:bg-gray-700">Send</button></div>
+
                         </div>
                     </div>
                 )}
