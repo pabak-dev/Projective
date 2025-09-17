@@ -4,30 +4,32 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
      *
-     * @var list<string>
+     * @var array<int, string>
      */
     protected $fillable = [
         'name',
         'email',
         'password',
+        'points',
+        'role',
+        'avatar',
     ];
 
     /**
      * The attributes that should be hidden for serialization.
      *
-     * @var list<string>
+     * @var array<int, string>
      */
     protected $hidden = [
         'password',
@@ -47,11 +49,17 @@ class User extends Authenticatable
         ];
     }
 
-    /**
-     * The projects that the user belongs to.
-     */
-    public function projects(): BelongsToMany
+    public function projects()
     {
-        return $this->belongsToMany(Project::class, 'project_user')->withPivot('role')->withTimestamps();
+        return $this->belongsToMany(Project::class);
+    }
+
+    /**
+     * Add this function to define the relationship.
+     * A user can be assigned to many tasks.
+     */
+    public function assignedTasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'assignee_id');
     }
 }
