@@ -47,12 +47,13 @@ class LeaderboardController extends Controller
             }
 
             return [
+                'id' => $user->id,
                 'rank' => $rank,
                 'name' => $isCurrentUser ? 'You' : $user->name,
                 'role' => $user->role ?? 'N/A',
                 'points' => $user->points,
                 'weeklyChange' => '+0 this week', // Placeholder for weekly change logic
-                'avatar' => $user->avatar ?? 'https://i.pravatar.cc/150',
+                'avatar' => $user->avatar,
                 'isCurrentUser' => $isCurrentUser,
             ];
         });
