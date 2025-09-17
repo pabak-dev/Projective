@@ -32,26 +32,27 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 # Get latest Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# === Backend Build ===
+# === Install Dependencies ===
+# Copy dependency manifests first to leverage Docker cache
 COPY composer.json composer.lock ./
 RUN composer install --no-interaction --no-plugins --no-scripts --no-dev --prefer-dist --optimize-autoloader
 
-# === Frontend Build ===
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# --- THIS IS THE FIX ---
-# Explicitly install the native Rollup dependency that npm fails to install correctly.
-RUN npm install --no-save @rollup/rollup-linux-x64-gnu
+# === Build Application ===
+# Copy the entire application source code
+COPY . .
 
-# Build frontend assets for production
+# NOW, build the frontend assets since all files are present
 RUN npm run build
 
 # === Final Setup ===
-COPY . .
+# Set permissions (after all files are in place)
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
+# Copy server configurations
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY nginx/default.conf /etc/nginx/sites-available/default
 
