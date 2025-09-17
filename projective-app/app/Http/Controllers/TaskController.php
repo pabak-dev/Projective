@@ -7,109 +7,78 @@ use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
-    // -------------------------------
-    // Get all tasks for a project
-    // -------------------------------
     public function index($projectId)
     {
         $tasks = Task::withCount(['comments','attachments'])
-                     ->with('assignedUser:id,name')
-                     ->where('project_id', $projectId)
-                     ->get();
-
+                        ->with('assignedUser:id,name')
+                        ->where('project_id', $projectId)
+                        ->get();
         return response()->json($tasks);
     }
 
-    // -------------------------------
-    // Create a new task
-    // -------------------------------
     public function store(Request $request, $projectId)
     {
         $task = Task::create([
             'project_id'  => $projectId,
             'title'       => $request->title,
-            'description' => $request->description,
             'status'      => $request->status,
-            'due_date'    => $request->due_date,
-            'assignee_id' => $request->assignee_id,
+            'priority'    => 'medium', // Default value on creation
+            'type'        => 'task',     // Default value on creation
         ]);
-
-        return response()->json(
-            $task->loadCount(['comments','attachments'])
-                 ->load(['assignedUser:id,name']),
-            201
-        );
+        return response()->json($task->loadCount(['comments','attachments'])->load(['assignedUser:id,name']), 201);
     }
 
-    // -------------------------------
-    // Show single task (with relations)
-    // -------------------------------
     public function show(Task $task)
     {
-        return $task->loadCount(['comments', 'attachments'])
-                    ->load([
-                        'assignedUser:id,name',
-                        'comments.user:id,name',
-                        'attachments'
-                    ]);
+        return $task->loadCount(['comments', 'attachments'])->load(['assignedUser:id,name', 'comments.user:id,name', 'attachments']);
     }
 
-    // -------------------------------
-    // Update task
-    // -------------------------------
+    /**
+     * Update task
+     * THIS IS THE CORRECTED FUNCTION
+     */
     public function update(Request $request, Task $task)
     {
-        $task->update($request->only([
-            'title',
-            'description',
-            'status',
-            'due_date',
-            'assignee_id'
-        ]));
+        // We validate all possible fields that can be updated from the modal.
+        // This is safer and explicitly allows 'priority' and 'type'.
+        $validatedData = $request->validate([
+            'title'       => 'sometimes|string|max:255',
+            'description' => 'sometimes|nullable|string',
+            'status'      => 'sometimes|string',
+            'due_date'    => 'sometimes|nullable|date',
+            'assignee_id' => 'sometimes|nullable|exists:users,id',
+            'priority'    => 'sometimes|string|in:low,medium,high',
+            'type'        => 'sometimes|string|in:task,meeting,milestone',
+        ]);
+        
+        $task->update($validatedData);
 
-        return response()->json(
-            $task->loadCount(['comments','attachments'])
-                 ->load(['assignedUser:id,name'])
-        );
+        return response()->json($task->loadCount(['comments','attachments'])->load(['assignedUser:id,name']));
     }
 
-    // -------------------------------
-    // Delete task
-    // -------------------------------
     public function destroy(Task $task)
     {
         $task->delete();
         return response()->json(null, 204);
     }
 
-    // -------------------------------
-    // Assign user to task
-    // -------------------------------
     public function assignUser(Request $request, Task $task)
     {
-        $request->validate([
-            'user_id' => 'required|exists:users,id',
-        ]);
-
+        $request->validate(['user_id' => 'required|exists:users,id']);
         $task->assignee_id = $request->user_id;
         $task->save();
 
-        // Return the task directly instead of wrapping it in a 'task' property
         return response()->json(
             $task->loadCount(['comments','attachments'])
                  ->load(['assignedUser:id,name'])
         );
     }
 
-    // -------------------------------
-    // Unassign user - FIXED
-    // -------------------------------
     public function unassignUser(Task $task)
     {
         $task->assignee_id = null;
         $task->save();
 
-        // Return the task directly instead of wrapping it in a 'task' property
         return response()->json(
             $task->loadCount(['comments','attachments'])
                  ->load(['assignedUser:id,name'])
