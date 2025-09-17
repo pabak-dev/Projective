@@ -94,25 +94,25 @@ class TaskController extends Controller
         $task->assignee_id = $request->user_id;
         $task->save();
 
-        return response()->json([
-            'message' => 'User assigned successfully',
-            'task'    => $task->loadCount(['comments','attachments'])
-                               ->load(['assignedUser:id,name'])
-        ]);
+        // Return the task directly instead of wrapping it in a 'task' property
+        return response()->json(
+            $task->loadCount(['comments','attachments'])
+                 ->load(['assignedUser:id,name'])
+        );
     }
 
     // -------------------------------
-    // Unassign user
+    // Unassign user - FIXED
     // -------------------------------
     public function unassignUser(Task $task)
     {
         $task->assignee_id = null;
         $task->save();
 
-        return response()->json([
-            'message' => 'User unassigned successfully',
-            'task'    => $task->loadCount(['comments','attachments'])
-                               ->load(['assignedUser:id,name'])
-        ]);
+        // Return the task directly instead of wrapping it in a 'task' property
+        return response()->json(
+            $task->loadCount(['comments','attachments'])
+                 ->load(['assignedUser:id,name'])
+        );
     }
 }
