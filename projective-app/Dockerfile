@@ -36,6 +36,8 @@ RUN npm run build
 #----------------------------------------------------------------
 FROM base AS final
 
+COPY php/www.conf /usr/local/etc/php-fpm.d/www.conf
+
 # Copy configurations first
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY nginx/default.conf /etc/nginx/sites-enabled/default
