@@ -22,16 +22,11 @@ FROM node:20-bookworm AS frontend_builder
 
 WORKDIR /app
 
-# Copy only package.json to generate a fresh lock file
 COPY package.json ./
-
-# This will now generate a Linux-native lock file and install correctly
 RUN npm install
 
 COPY vite.config.js ./
 COPY resources ./resources
-
-# This build will now succeed
 RUN npm run build
 
 #----------------------------------------------------------------
@@ -47,10 +42,18 @@ COPY . .
 COPY --from=frontend_builder --chown=www-data:www-data /app/public/build ./public/build
 
 RUN composer install --no-dev --optimize-autoloader
+
+# Create storage directories that might be missing
+RUN mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data
+
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-RUN php artisan config:cache && php artisan route:cache && php artisan view:cache
+# Clear all caches before caching for production for maximum reliability
+RUN php artisan optimize:clear \
+    && php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
 
 EXPOSE 80
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
