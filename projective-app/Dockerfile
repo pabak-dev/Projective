@@ -1,8 +1,7 @@
 #----------------------------------------------------------------
 # Stage 1: PHP Base & Dependencies
 #----------------------------------------------------------------
-# Using a specific version is better for reproducibility
-FROM php:8.3.11-fpm-bookworm AS base
+FROM php:8.3-fpm-bookworm AS base
 
 # Install essential system packages and PHP extensions
 RUN apt-get update && apt-get install -y \
@@ -25,31 +24,19 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd pdo_mysql zip opcache mbstring exif pcntl bcmath sockets
 
 # Get latest Composer
-COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
 #----------------------------------------------------------------
-# Stage 2: Composer Vendor Dependencies
+# Stage 2: Build Frontend Assets
 #----------------------------------------------------------------
-FROM base AS composer_vendor
-
-# Copy only composer files to leverage cache
-COPY composer.json composer.lock ./
-# Install production dependencies
-RUN composer install --no-interaction --no-scripts --no-dev --prefer-dist --optimize-autoloader
-
-#----------------------------------------------------------------
-# Stage 3: Frontend Asset Builder
-#----------------------------------------------------------------
-# Use a Node.js LTS version based on Debian for better compatibility
 FROM node:20-bookworm AS frontend_builder
 
 WORKDIR /app
 
-# Copy only package files to leverage cache
-COPY package.json ./
-# Use npm install to generate a fresh lockfile inside the container
+# Copy package files and install dependencies
+COPY package*.json ./
 RUN npm install
 
 # Copy frontend source files
@@ -60,30 +47,33 @@ COPY resources ./resources
 RUN npm run build
 
 #----------------------------------------------------------------
-# Stage 4: Final Production Image
+# Stage 3: Final Production Image
 #----------------------------------------------------------------
 FROM base AS final
 
 # Copy server configurations
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY nginx/default.conf /etc/nginx/sites-available/default
+COPY nginx/default.conf /etc/nginx/sites-available/default.conf
 
 WORKDIR /var/www
 
-# Copy vendor dependencies from the composer stage
-COPY --from=composer_vendor /var/www/vendor ./vendor
-
-COPY --from=frontend_builder /app/public/build ./public/build
-
+# Copy the entire application
 COPY . .
 
-# Create storage directories and set correct permissions
-RUN mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data \
-    && chown -R www-data:www-data storage bootstrap/cache \
+# Copy the built assets from the frontend_builder stage
+COPY --from=frontend_builder --chown=www-data:www-data /app/public/build ./public/build
+
+# Install composer dependencies
+RUN composer install --no-dev --optimize-autoloader
+
+# Set correct permissions
+RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
 # Clear any cached config/routes from local development
-RUN php artisan config:clear && php artisan route:clear
+RUN php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
 
 EXPOSE 80
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
