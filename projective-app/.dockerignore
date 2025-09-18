@@ -21,3 +21,5 @@ vendor
 # Laravel specific
 /storage/*.log
 /public/hot
+
+package-lock.json
