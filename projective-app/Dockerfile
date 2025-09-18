@@ -35,7 +35,8 @@ RUN npm run build
 FROM base AS final
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY nginx/default.conf /etc/nginx/sites-available/default.conf
+COPY nginx/default.conf /etc/nginx/sites-enabled/default
+
 WORKDIR /var/www
 
 COPY . .
