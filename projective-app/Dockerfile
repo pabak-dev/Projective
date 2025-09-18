@@ -47,13 +47,13 @@ RUN mkdir -p storage/framework/sessions storage/framework/views storage/framewor
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-
 RUN touch database/database.sqlite
 
-RUN php artisan optimize:clear \
-    && php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache
+# Force the build process to use the array cache driver to avoid database errors
+RUN CACHE_DRIVER=array php artisan optimize:clear \
+    && CACHE_DRIVER=array php artisan config:cache \
+    && CACHE_DRIVER=array php artisan route:cache \
+    && CACHE_DRIVER=array php artisan view:cache
 
 EXPOSE 80
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
