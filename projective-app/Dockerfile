@@ -1,24 +1,48 @@
+# projective-app/Dockerfile
+
 #----------------------------------------------------------------
 # Stage 1: PHP Base & Dependencies
 #----------------------------------------------------------------
 FROM php:8.3-fpm-bookworm AS base
 
-# Set the working directory
+RUN apt-get update && apt-get install -y \
+    nginx supervisor libpng-dev libzip-dev libjpeg-dev \
+    libfreetype6-dev libonig-dev git zip unzip \
+    --no-install-recommends && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install gd pdo_mysql zip opcache mbstring exif pcntl bcmath sockets
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www
 
-# Copy the application source code
-COPY . .
+#----------------------------------------------------------------
+# Stage 2: Build Frontend Assets
+#----------------------------------------------------------------
+FROM node:20-bookworm AS frontend_builder
 
-# Copy the Nginx configuration
+WORKDIR /app
+
+COPY package.json ./
+RUN npm install
+
+COPY vite.config.js ./
+COPY resources ./resources
+RUN npm run build
+
+#----------------------------------------------------------------
+# Stage 3: Final Production Image
+#----------------------------------------------------------------
+FROM base AS final
+
+# Copy configurations first
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY nginx/default.conf /etc/nginx/sites-enabled/default
 
-# Install Node.js, npm, and Composer dependencies, then build assets
-RUN apt-get update && apt-get install -y nodejs npm && \
-    npm install && \
-    npm run build && \
-    composer install --no-dev --optimize-autoloader
+WORKDIR /var/www
 
-# Copy the entire application source code first
+# Copy the entire application source code
 COPY --chown=www-data:www-data . .
 
 # Copy the built frontend assets
@@ -27,11 +51,15 @@ COPY --from=frontend_builder --chown=www-data:www-data /app/public/build ./publi
 # Now run composer install, with the artisan file present
 RUN composer install --no-dev --optimize-autoloader
 
-# Set final permissions
-RUN chown -R www-data:www-data storage bootstrap/cache \
+# ⬇️ --- FINAL CORRECTION --- ⬇️
+# As ROOT, create the necessary directories and set the correct ownership and permissions.
+# This is the crucial step that fixes the "View path not found" error.
+RUN mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data \
+    && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-# Run caching commands as the www-data user
+# Now, switch to the www-data user to run the caching commands.
+# This user now has a fully prepared environment.
 USER www-data
 RUN php artisan config:cache
 RUN php artisan route:cache
@@ -39,7 +67,7 @@ RUN php artisan view:cache
 
 # Switch back to root to start the server
 USER root
+# ⬆️ ---------------------------- ⬆️
 
-# Expose port 80 and start the services
 EXPOSE 80
-CMD ["/usr/bin/supervisord"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
