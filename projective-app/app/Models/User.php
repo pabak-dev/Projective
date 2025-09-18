@@ -12,11 +12,6 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'name',
         'email',
@@ -26,21 +21,11 @@ class User extends Authenticatable
         'avatar',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
@@ -54,12 +39,30 @@ class User extends Authenticatable
         return $this->belongsToMany(Project::class);
     }
 
-    /**
-     * Add this function to define the relationship.
-     * A user can be assigned to many tasks.
-     */
     public function assignedTasks(): HasMany
     {
         return $this->hasMany(Task::class, 'assignee_id');
     }
+
+    // Add this method
+    public function tasks()
+    {
+        return $this->hasMany(Task::class, 'assignee_id');
+    }
+
+    // Add these for leaderboard functionality
+    public function comments()
+    {
+        return $this->hasMany(Comment::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+    // In User.php
+public function achievements()
+{
+    return $this->hasMany(UserAchievement::class);
+}
 }

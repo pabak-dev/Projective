@@ -37,24 +37,31 @@ class TaskController extends Controller
      * Update task
      * THIS IS THE CORRECTED FUNCTION
      */
-    public function update(Request $request, Task $task)
-    {
-        // We validate all possible fields that can be updated from the modal.
-        // This is safer and explicitly allows 'priority' and 'type'.
-        $validatedData = $request->validate([
-            'title'       => 'sometimes|string|max:255',
-            'description' => 'sometimes|nullable|string',
-            'status'      => 'sometimes|string',
-            'due_date'    => 'sometimes|nullable|date',
-            'assignee_id' => 'sometimes|nullable|exists:users,id',
-            'priority'    => 'sometimes|string|in:low,medium,high',
-            'type'        => 'sometimes|string|in:task,meeting,milestone',
-        ]);
-        
-        $task->update($validatedData);
-
-        return response()->json($task->loadCount(['comments','attachments'])->load(['assignedUser:id,name']));
+  public function update(Request $request, Task $task)
+{
+    $validatedData = $request->validate([
+        'title'       => 'sometimes|string|max:255',
+        'description' => 'sometimes|nullable|string',
+        'status'      => 'sometimes|string',
+        'due_date'    => 'sometimes|nullable|date',
+        'assignee_id' => 'sometimes|nullable|exists:users,id',
+        'priority'    => 'sometimes|string|in:low,medium,high',
+        'type'        => 'sometimes|string|in:task,bug,story',
+    ]);
+    
+    // Set completed_at when task status changes to 'done'
+    if (isset($validatedData['status'])) {
+        if ($validatedData['status'] === 'done' && $task->status !== 'done') {
+            $validatedData['completed_at'] = now();
+        } elseif ($validatedData['status'] !== 'done') {
+            $validatedData['completed_at'] = null;
+        }
     }
+    
+    $task->update($validatedData);
+
+    return response()->json($task->loadCount(['comments','attachments'])->load(['assignedUser:id,name']));
+}
 
     public function destroy(Task $task)
     {

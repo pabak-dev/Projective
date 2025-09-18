@@ -167,27 +167,75 @@ export default function LeaderboardView({
           </div>
 
           {/* Achievements */}
-          <div className="achievements-section">
-            <h2 className="section-title">Achievements</h2>
-            <div className="achievements-list">
-              {achievements.map((achievement, index) => (
-                <div
-                  key={index}
-                  className={`achievement-item ${
-                    achievement.earned ? 'earned' : 'locked'
-                  }`}
-                >
-                  <div className="achievement-icon">{achievement.icon}</div>
-                  <div className="achievement-info">
-                    <div className="achievement-title">{achievement.title}</div>
-                    <div className="achievement-description">
-                      {achievement.description}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+<div className="achievements-section">
+  <h2 className="section-title">Achievements</h2>
+  <div className="achievements-list">
+    {achievements.map((achievement, index) => (
+      <div
+        key={index}
+        className={`achievement-item ${
+          achievement.earned ? 'earned' : 'locked'
+        }`}
+        style={{
+          opacity: achievement.earned ? 1 : 0.6,
+          backgroundColor: achievement.earned ? '#dcfce7' : '#f3f4f6',
+          border: achievement.earned ? '2px solid #16a34a' : '2px solid #d1d5db'
+        }}
+      >
+        <div className="achievement-icon" style={{ fontSize: '24px' }}>
+          {achievement.icon}
+        </div>
+        <div className="achievement-info">
+          <div className="achievement-title" style={{ 
+            fontWeight: 'bold', 
+            color: achievement.earned ? '#16a34a' : '#6b7280' 
+          }}>
+            {achievement.title}
+            {achievement.earned && <span style={{ color: '#16a34a', marginLeft: '8px' }}>✓</span>}
           </div>
+          <div className="achievement-description" style={{ 
+            fontSize: '14px', 
+            color: '#6b7280', 
+            marginBottom: '8px' 
+          }}>
+            {achievement.description}
+          </div>
+          
+          {/* Add Progress Bar */}
+          {achievement.progress && (
+            <div className="progress-container" style={{ marginTop: '8px' }}>
+              <div className="progress-text" style={{ 
+                fontSize: '12px', 
+                color: '#6b7280', 
+                marginBottom: '4px' 
+              }}>
+                Progress: {achievement.progress.current}/{achievement.progress.target}
+              </div>
+              <div className="progress-bar" style={{
+                width: '100%',
+                height: '8px',
+                backgroundColor: '#e5e7eb',
+                borderRadius: '4px',
+                overflow: 'hidden'
+              }}>
+                <div 
+                  className="progress-fill"
+                  style={{
+                    width: `${Math.min((achievement.progress.current / achievement.progress.target) * 100, 100)}%`,
+                    height: '100%',
+                    backgroundColor: achievement.earned ? '#16a34a' : '#3b82f6',
+                    borderRadius: '4px',
+                    transition: 'width 0.3s ease'
+                  }}
+                ></div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
         </div>
       </div>
     </div>

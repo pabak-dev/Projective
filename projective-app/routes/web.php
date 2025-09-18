@@ -21,17 +21,8 @@ Route::get('/', function () {
         'phpVersion' => PHP_VERSION,
     ]);
 });
+
 Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
-
-// Dashboard
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
-
-// Boards
-Route::get('/boards', function () {
-    return Inertia::render('Boards');
-})->middleware(['auth', 'verified'])->name('boards');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', function () {
@@ -46,40 +37,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('Analytics');
     })->name('analytics');
 
-    Route::get('/calendar', function () {
-        return Inertia::render('Calendar');
-    })->name('calendar');
+    Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar');
 
-    Route::get('/leaderboard', function () {
-        return Inertia::render('Leaderboard');
-    })->name('leaderboard');
+    // Fix: Use controller method instead of plain Inertia render
+    Route::get('/leaderboard', [LeaderboardController::class, 'showLeaderboard'])->name('leaderboard');
 
-     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    
-    // Add this new route for avatar updates
-    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
-
-     Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar');
-
-});
-
-// Profile management
-Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
-
-
-
-
-Route::middleware('auth')->group(function () {
-    // ... other authenticated routes
-
-    // 2. Make sure this line uses the controller
-    Route::get('/leaderboard', [LeaderboardController::class, 'index'])->name('leaderboard');
+    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
 });
 
 Route::middleware('auth')->prefix('api')->group(function () {
@@ -89,7 +55,6 @@ Route::middleware('auth')->prefix('api')->group(function () {
     Route::get('/projects', [ProjectController::class, 'index']);
     Route::post('/projects', [ProjectController::class, 'store']);
     Route::get('/projects/{project}', [ProjectController::class, 'show']);
-
     Route::put('/projects/{project}', [ProjectController::class, 'update']);
     Route::delete('/projects/{project}', [ProjectController::class, 'destroy']);
 
@@ -113,6 +78,10 @@ Route::middleware('auth')->prefix('api')->group(function () {
     // Attachment Routes
     Route::post('/tasks/{task}/attachments', [AttachmentController::class, 'store']);
     Route::delete('/attachments/{attachment}', [AttachmentController::class, 'destroy']);
+    
+    // API routes for leaderboard data (if needed for AJAX calls)
+    Route::get('/leaderboard', [LeaderboardController::class, 'index']);
+    Route::get('/user-stats', [LeaderboardController::class, 'userStats']);
 });
 
 require __DIR__.'/auth.php';
