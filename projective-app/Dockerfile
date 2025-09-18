@@ -34,23 +34,32 @@ RUN npm run build
 #----------------------------------------------------------------
 FROM base AS final
 
+# Copy configurations first
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY nginx/default.conf /etc/nginx/sites-enabled/default
 
 WORKDIR /var/www
 
-COPY . .
-COPY --from=frontend_builder --chown=www-data:www-data /app/public/build ./public/build
-
+COPY --chown=www-data:www-data composer.json composer.lock ./
 RUN composer install --no-dev --optimize-autoloader
 
-RUN mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data
-RUN chown -R www-data:www-data storage bootstrap/cache \
+COPY --chown=www-data:www-data . .
+
+COPY --from=frontend_builder --chown=www-data:www-data /app/public/build ./public/build
+
+# Ensure the correct directories exist and set the final, correct permissions
+RUN mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data \
+    && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
+# Run caching commands as the www-data user
+USER www-data
 RUN php artisan config:cache
 RUN php artisan route:cache
 RUN php artisan view:cache
+
+# Switch back to root user to start the server
+USER root
 
 EXPOSE 80
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
