@@ -192,16 +192,18 @@ class LeaderboardController extends Controller
     }
 
     private function formatAchievements($achievements)
-    {
-        return collect($achievements)->map(function ($achievement) {
-            return [
-                'title' => $achievement['name'],
-                'description' => $achievement['description'],
-                'icon' => $this->getAchievementIcon($achievement['name']),
-                'earned' => $achievement['earned'],
-            ];
-        })->toArray();
-    }
+{
+    return collect($achievements)->map(function ($achievement) {
+        return [
+            'title' => $achievement['name'],
+            'description' => $achievement['description'],
+            'icon' => $this->getAchievementIcon($achievement['name']),
+            'earned' => $achievement['earned'],
+            'progress' => $achievement['progress'], // Make sure this is included
+            'earned_at' => $achievement['earned_at'] ?? null
+        ];
+    })->toArray();
+}
 
     private function getAchievementIcon($achievementName)
     {
