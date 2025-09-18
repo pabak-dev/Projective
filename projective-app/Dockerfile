@@ -43,13 +43,13 @@ COPY --from=frontend_builder --chown=www-data:www-data /app/public/build ./publi
 
 RUN composer install --no-dev --optimize-autoloader
 
-# Create storage directories that might be missing
 RUN mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data
-
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-# Clear all caches before caching for production for maximum reliability
+
+RUN touch database/database.sqlite
+
 RUN php artisan optimize:clear \
     && php artisan config:cache \
     && php artisan route:cache \
