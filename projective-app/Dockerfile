@@ -52,15 +52,12 @@ COPY --from=frontend_builder --chown=www-data:www-data /app/public/build ./publi
 # Now run composer install
 RUN composer install --no-dev --optimize-autoloader
 
-# ✅ --- FINAL CORRECTION --- ✅
-# As ROOT, create all necessary framework directories and THEN set the correct ownership/permissions.
-# This is the crucial step that fixes the "View path not found" error.
+# Create all necessary framework directories and set permissions.
 RUN mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data \
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-# Now, switch to the www-data user to run the caching commands.
-# This user now has a fully prepared and permissioned environment.
+# Switch to the www-data user to run the caching commands.
 USER www-data
 RUN php artisan config:cache
 RUN php artisan route:cache
@@ -68,7 +65,9 @@ RUN php artisan view:cache
 
 # Switch back to root to start the server
 USER root
-# ----------------------------
 
 EXPOSE 80
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+
+# ⬇️ --- THIS IS THE FINAL CHANGE --- ⬇️
+# Use the shell form of CMD to run migrations first, then start the server.
+CMD php artisan migrate --force && /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
