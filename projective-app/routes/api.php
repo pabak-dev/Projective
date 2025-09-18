@@ -62,4 +62,7 @@ Route::middleware('auth')->group(function () {
     // Attachment Routes
     Route::post('/tasks/{task}/attachments', [AttachmentController::class, 'store']);
     Route::delete('/attachments/{attachment}', [AttachmentController::class, 'destroy']);
+    // routes/api.php
+Route::get('/leaderboard', [LeaderboardController::class, 'index']);
+Route::get('/user-stats', [LeaderboardController::class, 'userStats']);
 });

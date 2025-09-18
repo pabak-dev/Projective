@@ -115,14 +115,14 @@ export default function Boards() {
     setNewTask({ ...newTask, [status]: "" });
   };
 
-  const handleDragEnd = async (result) => {
+const handleDragEnd = async (result) => {
     if (!result.destination) return;
     const { source, destination } = result;
     if (
-      source.droppableId === destination.droppableId &&
-      source.index === destination.index
+        source.droppableId === destination.droppableId &&
+        source.index === destination.index
     )
-      return;
+        return;
 
     const sourceTasks = [...tasks[source.droppableId]];
     const [moved] = sourceTasks.splice(source.index, 1);
@@ -131,13 +131,14 @@ export default function Boards() {
     destTasks.splice(destination.index, 0, moved);
 
     setTasks({
-      ...tasks,
-      [source.droppableId]: sourceTasks,
-      [destination.droppableId]: destTasks,
+        ...tasks,
+        [source.droppableId]: sourceTasks,
+        [destination.droppableId]: destTasks,
     });
+    
+    // This call will now trigger the completed_at timestamp
     await axios.put(`/api/tasks/${moved.id}`, { status: moved.status });
-  };
-
+};
   // --- PROJECT MANAGEMENT ---
   const handleCreateProject = async (e) => {
     e.preventDefault();
