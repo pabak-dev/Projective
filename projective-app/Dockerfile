@@ -40,16 +40,17 @@ COPY nginx/default.conf /etc/nginx/sites-enabled/default
 
 WORKDIR /var/www
 
-COPY --chown=www-data:www-data composer.json composer.lock ./
-RUN composer install --no-dev --optimize-autoloader
-
+# Copy the entire application source code first
 COPY --chown=www-data:www-data . .
 
+# Copy the built frontend assets
 COPY --from=frontend_builder --chown=www-data:www-data /app/public/build ./public/build
 
-# Ensure the correct directories exist and set the final, correct permissions
-RUN mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data \
-    && chown -R www-data:www-data storage bootstrap/cache \
+# Now run composer install, with the artisan file present
+RUN composer install --no-dev --optimize-autoloader
+
+# Set final permissions
+RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
 # Run caching commands as the www-data user
@@ -58,7 +59,7 @@ RUN php artisan config:cache
 RUN php artisan route:cache
 RUN php artisan view:cache
 
-# Switch back to root user to start the server
+# Switch back to root to start the server
 USER root
 
 EXPOSE 80
