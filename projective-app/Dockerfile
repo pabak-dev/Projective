@@ -50,7 +50,7 @@ COPY --chown=www-data:www-data . .
 COPY --from=frontend_builder --chown=www-data:www-data /app/public/build ./public/build
 
 # Now run composer install
-RUN composer install --no-dev --optimize-autoloader
+RUN composer install --optimize-autoloader
 
 # Create all necessary framework directories and set permissions.
 RUN mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data \
@@ -65,6 +65,10 @@ RUN php artisan view:cache
 
 # Switch back to root to start the server
 USER root
+
+RUN php artisan config:cache
+RUN php artisan route:cache
+RUN php artisan view:cache
 
 EXPOSE 80
 
