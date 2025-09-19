@@ -15,30 +15,32 @@ class LeaderboardController extends Controller
     // For API calls
     public function index()
     {
-        $users = User::withCount(['tasks as completed_tasks' => function ($query) {
-            $query->where('status', 'done');
-        }])
-        ->with(['tasks' => function ($query) {
-            $query->where('status', 'done')->with(['project']);
-        }])
-        ->get()
-        ->map(function ($user) {
-            $totalPoints = $this->calculateUserPoints($user);
-            $weeklyPoints = $this->calculateWeeklyPoints($user);
-            
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role ?? 'Developer',
-                'totalPoints' => $totalPoints,
-                'weeklyPoints' => $weeklyPoints,
-                'tasksCompleted' => $user->completed_tasks,
-            ];
-        })
-        ->sortByDesc('totalPoints')
-        ->values()
-        ->toArray();
+        $users = User::where('name', '!=', 'Test User') // Exclude Test User
+            ->withCount(['tasks as completed_tasks' => function ($query) {
+                $query->where('status', 'done');
+            }])
+            ->with(['tasks' => function ($query) {
+                $query->where('status', 'done')->with(['project']);
+            }])
+            ->get()
+            ->map(function ($user) {
+                $totalPoints = $this->calculateUserPoints($user);
+                $weeklyPoints = $this->calculateWeeklyPoints($user);
+                
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role ?? 'Developer',
+                    'totalPoints' => $totalPoints,
+                    'weeklyPoints' => $weeklyPoints,
+                    'tasksCompleted' => $user->completed_tasks,
+                    'avatar' => $user->avatar,
+                ];
+            })
+            ->sortByDesc('totalPoints')
+            ->values()
+            ->toArray();
 
         return response()->json($users);
     }
@@ -49,21 +51,22 @@ class LeaderboardController extends Controller
         $totalPoints = $this->calculateUserPoints($user);
         $weeklyPoints = $this->calculateWeeklyPoints($user);
         
-        $rank = User::withCount(['tasks as completed_tasks' => function ($query) {
-            $query->where('status', 'done');
-        }])
-        ->get()
-        ->map(function ($u) {
-            return [
-                'id' => $u->id,
-                'totalPoints' => $this->calculateUserPoints($u)
-            ];
-        })
-        ->sortByDesc('totalPoints')
-        ->values()
-        ->search(function ($item) use ($user) {
-            return $item['id'] === $user->id;
-        }) + 1;
+        $rank = User::where('name', '!=', 'Test User') // Exclude Test User
+            ->withCount(['tasks as completed_tasks' => function ($query) {
+                $query->where('status', 'done');
+            }])
+            ->get()
+            ->map(function ($u) {
+                return [
+                    'id' => $u->id,
+                    'totalPoints' => $this->calculateUserPoints($u)
+                ];
+            })
+            ->sortByDesc('totalPoints')
+            ->values()
+            ->search(function ($item) use ($user) {
+                return $item['id'] === $user->id;
+            }) + 1;
 
         $completedTasks = $user->tasks()->where('status', 'done')->count();
         $avgPointsPerTask = $completedTasks > 0 ? round($totalPoints / $completedTasks, 1) : 0;
@@ -111,30 +114,32 @@ class LeaderboardController extends Controller
 
     private function getLeaderboardData()
     {
-        $users = User::withCount(['tasks as completed_tasks' => function ($query) {
-            $query->where('status', 'done');
-        }])
-        ->with(['tasks' => function ($query) {
-            $query->where('status', 'done')->with(['project']);
-        }])
-        ->get()
-        ->map(function ($user) {
-            $totalPoints = $this->calculateUserPoints($user);
-            $weeklyPoints = $this->calculateWeeklyPoints($user);
-            
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role ?? 'Developer',
-                'totalPoints' => $totalPoints,
-                'weeklyPoints' => $weeklyPoints,
-                'tasksCompleted' => $user->completed_tasks,
-            ];
-        })
-        ->sortByDesc('totalPoints')
-        ->values()
-        ->toArray();
+        $users = User::where('name', '!=', 'Test User') // Exclude Test User
+            ->withCount(['tasks as completed_tasks' => function ($query) {
+                $query->where('status', 'done');
+            }])
+            ->with(['tasks' => function ($query) {
+                $query->where('status', 'done')->with(['project']);
+            }])
+            ->get()
+            ->map(function ($user) {
+                $totalPoints = $this->calculateUserPoints($user);
+                $weeklyPoints = $this->calculateWeeklyPoints($user);
+                
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role ?? 'Developer',
+                    'totalPoints' => $totalPoints,
+                    'weeklyPoints' => $weeklyPoints,
+                    'tasksCompleted' => $user->completed_tasks,
+                    'avatar' => $user->avatar,
+                ];
+            })
+            ->sortByDesc('totalPoints')
+            ->values()
+            ->toArray();
 
         return $users;
     }
@@ -142,24 +147,32 @@ class LeaderboardController extends Controller
     private function getUserStatsData()
     {
         $user = Auth::user();
+        if (!$user) {
+            return [
+                'totalPoints' => 0, 'weeklyPoints' => 0, 'rank' => 0,
+                'tasksCompleted' => 0, 'avgPointsPerTask' => 0, 'achievements' => []
+            ];
+        }
+
         $totalPoints = $this->calculateUserPoints($user);
         $weeklyPoints = $this->calculateWeeklyPoints($user);
         
-        $rank = User::withCount(['tasks as completed_tasks' => function ($query) {
-            $query->where('status', 'done');
-        }])
-        ->get()
-        ->map(function ($u) {
-            return [
-                'id' => $u->id,
-                'totalPoints' => $this->calculateUserPoints($u)
-            ];
-        })
-        ->sortByDesc('totalPoints')
-        ->values()
-        ->search(function ($item) use ($user) {
-            return $item['id'] === $user->id;
-        }) + 1;
+        $rank = User::where('name', '!=', 'Test User') // Exclude Test User
+            ->withCount(['tasks as completed_tasks' => function ($query) {
+                $query->where('status', 'done');
+            }])
+            ->get()
+            ->map(function ($u) {
+                return [
+                    'id' => $u->id,
+                    'totalPoints' => $this->calculateUserPoints($u)
+                ];
+            })
+            ->sortByDesc('totalPoints')
+            ->values()
+            ->search(function ($item) use ($user) {
+                return $item['id'] === $user->id;
+            }) + 1;
 
         $completedTasks = $user->tasks()->where('status', 'done')->count();
         $avgPointsPerTask = $completedTasks > 0 ? round($totalPoints / $completedTasks, 1) : 0;
@@ -183,33 +196,33 @@ class LeaderboardController extends Controller
                 'rank' => $index + 1,
                 'name' => $user['name'],
                 'role' => $user['role'],
-                'avatar' => null,
+                'avatar' => $user['avatar'],
                 'points' => $user['totalPoints'],
                 'weeklyChange' => $user['weeklyPoints'] > 0 ? "+{$user['weeklyPoints']} this week" : "+0 this week",
-                'isCurrentUser' => $user['id'] === auth()->id(),
+                'isCurrentUser' => auth()->check() && $user['id'] === auth()->id(),
             ];
         })->toArray();
     }
 
     private function formatAchievements($achievements)
-{
-    return collect($achievements)->map(function ($achievement) {
-        return [
-            'title' => $achievement['name'],
-            'description' => $achievement['description'],
-            'icon' => $this->getAchievementIcon($achievement['name']),
-            'earned' => $achievement['earned'],
-            'progress' => $achievement['progress'], // Make sure this is included
-            'earned_at' => $achievement['earned_at'] ?? null
-        ];
-    })->toArray();
-}
+    {
+        return collect($achievements)->map(function ($achievement) {
+            return [
+                'title' => $achievement['name'],
+                'description' => $achievement['description'],
+                'icon' => $this->getAchievementIcon($achievement['name']),
+                'earned' => $achievement['earned'],
+                'progress' => $achievement['progress'],
+                'earned_at' => $achievement['earned_at'] ?? null
+            ];
+        })->toArray();
+    }
 
     private function getAchievementIcon($achievementName)
     {
         $icons = [
-            'Speed Demon' => '⚡',
-            'Code Reviewer' => '👨‍💻',
+            'Speed Demon' => '💨',
+            'Code Reviewer' => '👀',
             'Bug Hunter' => '🐛',
             'Team Player' => '🤝',
         ];
@@ -275,84 +288,76 @@ class LeaderboardController extends Controller
         return $points;
     }
 
-private function getUserAchievements($user)
-{
-    $completedTasks = $user->tasks()->where('status', 'done')->get();
-    
-    // Achievement definitions
-    $achievementDefinitions = [
-        'Speed Demon' => [
-            'description' => 'Complete tasks before deadline',
-            'calculate' => function() use ($completedTasks) {
-                return $completedTasks->filter(function ($task) {
-                    if ($task->completed_at && $task->due_date) {
-                        return new \DateTime($task->completed_at) < new \DateTime($task->due_date);
-                    }
-                    return false;
-                })->count();
-            },
-            'target' => max(3, ceil($completedTasks->count() * 0.3))
-        ],
-        'Bug Hunter' => [
-            'description' => 'Fix bug tasks',
-            'calculate' => function() use ($completedTasks) {
-                return $completedTasks->where('type', 'bug')->count();
-            },
-            'target' => max(3, ceil($completedTasks->count() * 0.2))
-        ],
-        'Team Player' => [
-            'description' => 'Make helpful comments',
-            'calculate' => function() use ($user) {
-                return $user->comments()->count();
-            },
-            'target' => max(10, $completedTasks->count() * 2)
-        ],
-        'Task Master' => [
-            'description' => 'Complete tasks',
-            'calculate' => function() use ($completedTasks) {
-                return $completedTasks->count();
-            },
-            'target' => max(10, 15)
-        ]
-    ];
-
-    $achievements = [];
-    
-    foreach ($achievementDefinitions as $name => $definition) {
-        $currentProgress = $definition['calculate']();
-        $targetProgress = $definition['target'];
-        $isEarned = $currentProgress >= $targetProgress;
+    private function getUserAchievements($user)
+    {
+        $completedTasks = $user->tasks()->where('status', 'done')->get();
         
-        // Update or create achievement record
-        $userAchievement = UserAchievement::updateOrCreate(
-            [
-                'user_id' => $user->id,
-                'achievement_name' => $name
+        $achievementDefinitions = [
+            'Speed Demon' => [
+                'description' => 'Complete tasks before deadline',
+                'calculate' => function() use ($completedTasks) {
+                    return $completedTasks->filter(function ($task) {
+                        if ($task->completed_at && $task->due_date) {
+                            return new \DateTime($task->completed_at) < new \DateTime($task->due_date);
+                        }
+                        return false;
+                    })->count();
+                },
+                'target' => max(3, ceil($completedTasks->count() * 0.3))
             ],
-            [
-                'description' => $definition['description'],
-                'current_progress' => $currentProgress,
-                'target_progress' => $targetProgress,
-                'is_earned' => $isEarned,
-                'earned_at' => $isEarned && !UserAchievement::where('user_id', $user->id)
-                    ->where('achievement_name', $name)
-                    ->where('is_earned', true)
-                    ->exists() ? now() : null
+            'Bug Hunter' => [
+                'description' => 'Fix bug tasks',
+                'calculate' => function() use ($completedTasks) {
+                    return $completedTasks->where('type', 'bug')->count();
+                },
+                'target' => max(3, ceil($completedTasks->count() * 0.2))
+            ],
+            'Team Player' => [
+                'description' => 'Make helpful comments',
+                'calculate' => function() use ($user) {
+                    return $user->comments()->count();
+                },
+                'target' => max(10, $completedTasks->count() * 2)
+            ],
+            'Task Master' => [
+                'description' => 'Complete tasks',
+                'calculate' => function() use ($completedTasks) {
+                    return $completedTasks->count();
+                },
+                'target' => max(10, 15)
             ]
-        );
-
-        $achievements[] = [
-            'name' => $name,
-            'description' => "{$definition['description']} ({$targetProgress} needed)",
-            'earned' => $isEarned,
-            'progress' => [
-                'current' => $currentProgress,
-                'target' => $targetProgress
-            ],
-            'earned_at' => $userAchievement->earned_at
         ];
-    }
 
-    return $achievements;
-}
+        $achievements = [];
+        
+        foreach ($achievementDefinitions as $name => $definition) {
+            $currentProgress = $definition['calculate']();
+            $targetProgress = $definition['target'];
+            $isEarned = $currentProgress >= $targetProgress;
+            
+            $userAchievement = UserAchievement::updateOrCreate(
+                ['user_id' => $user->id, 'achievement_name' => $name],
+                [
+                    'description' => $definition['description'],
+                    'current_progress' => $currentProgress,
+                    'target_progress' => $targetProgress,
+                    'is_earned' => $isEarned,
+                    'earned_at' => $isEarned && !UserAchievement::where('user_id', $user->id)
+                        ->where('achievement_name', $name)
+                        ->where('is_earned', true)
+                        ->exists() ? now() : null
+                ]
+            );
+
+            $achievements[] = [
+                'name' => $name,
+                'description' => "{$definition['description']} ({$targetProgress} needed)",
+                'earned' => $isEarned,
+                'progress' => ['current' => $currentProgress, 'target' => $targetProgress],
+                'earned_at' => $userAchievement->earned_at
+            ];
+        }
+
+        return $achievements;
+    }
 }
