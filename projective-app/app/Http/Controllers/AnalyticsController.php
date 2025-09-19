@@ -20,13 +20,28 @@ class AnalyticsController extends Controller
         $projectId = $request->input('project_id');
         $period = $request->input('period', '30');
 
+        // Get only the projects the current user is a member of
+        $userProjects = $user->projects()->pluck('projects.id');
+
+        // If a project_id is requested, check if the user has access to it
+        if ($projectId && !$userProjects->contains($projectId)) {
+            // If they don't have access, forbid the request or redirect.
+            // For this case, we'll just ignore the invalid project_id.
+            $projectId = null;
+        }
+
         $startDate = now()->subDays($period);
 
-        $taskQuery = Task::query()->where('created_at', '>=', $startDate);
+        // Base query for tasks, now scoped to the user's projects
+        $taskQuery = Task::query()
+            ->whereIn('project_id', $userProjects)
+            ->where('created_at', '>=', $startDate);
+
         if ($projectId) {
             $taskQuery->where('project_id', $projectId);
         }
 
+        // Overall Task Stats
         $totalTasks = (clone $taskQuery)->count();
         $completedTasks = (clone $taskQuery)->where('status', 'done')->count();
         $inProgressTasks = (clone $taskQuery)->where('status', 'in_progress')->count();
@@ -36,9 +51,8 @@ class AnalyticsController extends Controller
             ->selectRaw('AVG(DATEDIFF(completed_at, created_at)) as avg_cycle_time')
             ->value('avg_cycle_time');
 
-        // Restoring your robust avatar logic here
-       // eager load only what we need and ensure avatar/name are selected
-$recentTasksQuery = Task::with(['assignedUser' => function ($q) {
+        // Recent Activities
+        $recentTasksQuery = Task::with(['assignedUser' => function ($q) {
     $q->select('id', 'name', 'avatar');
 }])->whereHas('assignedUser');
 
@@ -72,17 +86,22 @@ $recentActivities = $recentTasks->map(function ($task) {
         'status' => ucfirst($task->status),
         'avatar' => $avatar,
     ];
-})->values(); // normalize indexes for JSON
+})->values();
 
-        // Team Performance - Updated to exclude 'Test User'
-        $teamQuery = User::where('name', '!=', 'Test User');
+        // Team Performance
+        $teamQuery = User::where('name', '!=', 'Test User')
+            ->whereHas('projects', function ($q) use ($userProjects) {
+                $q->whereIn('projects.id', $userProjects);
+            });
+            
         if ($projectId) {
             $teamQuery->whereHas('projects', function ($q) use ($projectId) {
                 $q->where('projects.id', $projectId);
             });
         }
-        $teamPerformance = $teamQuery->withCount(['tasks as tasksCompleted' => function ($query) use ($projectId, $startDate) {
-                $query->where('status', 'done')->where('completed_at', '>=', $startDate);
+        $teamPerformance = $teamQuery->withCount(['tasks as tasksCompleted' => function ($query) use ($projectId, $startDate, $userProjects) {
+                $query->where('status', 'done')->where('completed_at', '>=', $startDate)
+                      ->whereIn('project_id', $userProjects);
                 if ($projectId) {
                     $query->where('project_id', $projectId);
                 }
@@ -139,7 +158,7 @@ $recentActivities = $recentTasks->map(function ($task) {
             'teamPerformance' => $teamPerformance,
             'taskDistribution' => $taskDistribution,
             'taskFlow' => $dates,
-            'projects' => Project::all(['id', 'name']),
+            'projects' => $user->projects()->get(['projects.id', 'projects.name']), // Pass only the user's projects
             'currentProjectId' => $projectId,
             'currentPeriod' => $period,
         ]);
@@ -147,11 +166,19 @@ $recentActivities = $recentTasks->map(function ($task) {
     
     public function exportReport(Request $request)
     {
+        $user = Auth::user();
         $projectId = $request->input('project_id');
         $period = $request->input('period', '30');
+        
+        $userProjects = $user->projects()->pluck('projects.id');
+
+        if ($projectId && !$userProjects->contains($projectId)) {
+            return abort(403, 'Unauthorized action.'); // Stop export if user doesn't have access
+        }
+
         $startDate = now()->subDays($period);
 
-        $taskQuery = Task::query()->where('created_at', '>=', $startDate);
+        $taskQuery = Task::query()->whereIn('project_id', $userProjects)->where('created_at', '>=', $startDate);
         if ($projectId) {
             $taskQuery->where('project_id', $projectId);
         }
@@ -163,14 +190,16 @@ $recentActivities = $recentTasks->map(function ($task) {
             'avgCycleTime' => round((clone $taskQuery)->where('status', 'done')->whereNotNull('completed_at')->selectRaw('AVG(DATEDIFF(completed_at, created_at)) as time')->value('time'), 1),
         ];
 
-        $teamQuery = User::where('name', '!=', 'Test User');
+        $teamQuery = User::where('name', '!=', 'Test User')->whereHas('projects', function ($q) use ($userProjects) {
+            $q->whereIn('projects.id', $userProjects);
+        });
         if ($projectId) {
             $teamQuery->whereHas('projects', function ($q) use ($projectId) {
                 $q->where('projects.id', $projectId);
             });
         }
-        $teamPerformance = $teamQuery->withCount(['tasks as tasksCompleted' => function ($query) use ($projectId, $startDate) {
-            $query->where('status', 'done')->where('completed_at', '>=', $startDate);
+        $teamPerformance = $teamQuery->withCount(['tasks as tasksCompleted' => function ($query) use ($projectId, $startDate, $userProjects) {
+            $query->where('status', 'done')->where('completed_at', '>=', $startDate)->whereIn('project_id', $userProjects);
             if ($projectId) {
                 $query->where('project_id', $projectId);
             }
@@ -182,7 +211,7 @@ $recentActivities = $recentTasks->map(function ($task) {
 
         $taskDistribution = (clone $taskQuery)->select('status', DB::raw('count(*) as count'))->groupBy('status')->pluck('count', 'status');
 
-        $projectName = $projectId ? Project::find($projectId)->name : 'All Projects';
+        $projectName = $projectId ? Project::find($projectId)->name : 'All My Projects';
         $dateRange = "Last {$period} days (" . $startDate->format('M d, Y') . " - " . now()->format('M d, Y') . ")";
 
         $data = [
