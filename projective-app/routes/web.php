@@ -41,6 +41,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Fix: Use controller method instead of plain Inertia render
     Route::get('/leaderboard', [LeaderboardController::class, 'showLeaderboard'])->name('leaderboard');
+    
+    Route::post('/assistant/query', [App\Http\Controllers\AssistantController::class, 'query']);
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
