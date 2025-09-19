@@ -12,6 +12,7 @@ use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProjectMemberController;
 use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\AnalyticsController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -32,14 +33,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/boards', function () {
         return Inertia::render('Boards');
     })->name('boards');
-
-    Route::get('/analytics', function () {
-        return Inertia::render('Analytics');
-    })->name('analytics');
+    
+    Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
+    Route::get('/analytics/export', [AnalyticsController::class, 'exportReport'])->name('analytics.export');
 
     Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar');
 
-    // Fix: Use controller method instead of plain Inertia render
     Route::get('/leaderboard', [LeaderboardController::class, 'showLeaderboard'])->name('leaderboard');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
