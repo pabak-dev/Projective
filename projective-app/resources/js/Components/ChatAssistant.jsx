@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { MessageSquare, X, Send, Loader, Bot, User } from "lucide-react";
 
-export default function ChatAssistant({ projectId, projectName = "Project" }) {
+export default function ChatAssistant({ projectId, projectName = "Project", boardTasks }) {
     const [open, setOpen] = useState(false);
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
@@ -14,22 +14,8 @@ export default function ChatAssistant({ projectId, projectName = "Project" }) {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
-
-    // Initial welcome message
-    useEffect(() => {
-        if (open && messages.length === 0 && projectId) {
-            setMessages([{
-                role: 'assistant',
-                text: `Hi! I'm your AI project assistant for ${projectName}. I can help you with:\n\n• Check your task progress\n• Review project status\n• Identify overdue tasks\n• Answer questions about team work\n\nTry asking: "What tasks do I have in progress?" or "What's our project status?"`
-            }]);
-        }
-    }, [open, projectId, projectName]);
-
     const send = async () => {
-        if (!input.trim() || !projectId || loading) return;
+        if (!input.trim() || loading) return;
 
         const userMsg = { role: 'user', text: input };
         setMessages(prev => [...prev, userMsg]);
@@ -37,24 +23,46 @@ export default function ChatAssistant({ projectId, projectName = "Project" }) {
         setInput('');
         setLoading(true);
 
+        // Prepare board data as a string for Gemini context
+        let boardDataString = '';
+        if (boardTasks) {
+            // Flatten and format tasks for context
+            const allTasks = Object.entries(boardTasks).flatMap(([status, tasks]) =>
+                tasks.map(task => `- [${status}] ${task.title}${task.assignedUser ? ` (Assigned: ${task.assignedUser.name})` : ''}${task.due_date ? ` (Due: ${task.due_date})` : ''}`)
+            );
+            if (allTasks.length > 0) {
+                boardDataString = `Board Tasks:\n${allTasks.join('\n')}`;
+            }
+        }
+
         try {
             const res = await axios.post('/assistant/query', {
-                project_id: projectId,
                 prompt: currentInput,
+                boardData: boardDataString,
             });
+
+            let answer = res.data.answer;
+            // If answer is an object with error, show error message
+            if (typeof answer === 'object' && answer !== null && answer.error) {
+                let errorMsg = `Error: ${answer.message || 'Unknown error.'}`;
+                if (answer.status) errorMsg += `\nStatus: ${answer.status}`;
+                if (answer.body) errorMsg += `\nBody: ${answer.body}`;
+                if (answer.url) errorMsg += `\nURL: ${answer.url}`;
+                if (answer.model) errorMsg += `\nModel: ${answer.model}`;
+                if (answer.apiKeyStartsWith) errorMsg += `\nAPI Key Starts With: ${answer.apiKeyStartsWith}`;
+                if (answer.trace) errorMsg += `\nTrace: ${answer.trace}`;
+                answer = errorMsg;
+            }
 
             const assistantMsg = {
                 role: 'assistant',
-                text: res.data.answer || 'I apologize, but I could not process your request.'
+                text: answer || 'I apologize, but I could not process your request.'
             };
-
             setMessages(prev => [...prev, assistantMsg]);
 
         } catch (err) {
             console.error('Assistant API Error:', err);
-            
             let errorMessage = 'I encountered an error. Please try again.';
-            
             if (err.response?.status === 401) {
                 errorMessage = 'Authentication expired. Please refresh the page and try again.';
             } else if (err.response?.status === 403) {
@@ -62,7 +70,6 @@ export default function ChatAssistant({ projectId, projectName = "Project" }) {
             } else if (err.response?.data?.message) {
                 errorMessage = err.response.data.message;
             }
-            
             setMessages(prev => [...prev, {
                 role: 'assistant',
                 text: errorMessage
@@ -138,16 +145,9 @@ export default function ChatAssistant({ projectId, projectName = "Project" }) {
 
                     {/* Messages Area */}
                     <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50">
-                        {!projectId ? (
-                            <div className="flex items-center justify-center h-full text-gray-500 text-center">
-                                <div>
-                                    <Bot size={48} className="mx-auto mb-3 opacity-50" />
-                                    <p>Please select a project to start using the AI assistant.</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <>
-                                {messages.map((msg, i) => (
+                        {/* Remove projectId check, always show chat */}
+                        <>
+                            {messages.map((msg, i) => (
                                     <div
                                         key={i}
                                         className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -174,26 +174,25 @@ export default function ChatAssistant({ projectId, projectName = "Project" }) {
                                             </div>
                                         )}
                                     </div>
-                                ))}
+                            ))}
 
-                                {loading && (
-                                    <div className="flex gap-3 justify-start">
-                                        <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-                                            <Loader size={16} className="text-indigo-600 animate-spin" />
-                                        </div>
-                                        <div className="bg-white border border-gray-200 p-3 rounded-lg text-sm text-gray-600">
-                                            Thinking...
-                                        </div>
+                            {loading && (
+                                <div className="flex gap-3 justify-start">
+                                    <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                                        <Loader size={16} className="text-indigo-600 animate-spin" />
                                     </div>
-                                )}
+                                    <div className="bg-white border border-gray-200 p-3 rounded-lg text-sm text-gray-600">
+                                        Thinking...
+                                    </div>
+                                </div>
+                            )}
 
-                                <div ref={messagesEndRef} />
-                            </>
-                        )}
+                            <div ref={messagesEndRef} />
+                        </>
                     </div>
 
                     {/* Quick Questions */}
-                    {projectId && messages.length <= 1 && (
+                    {messages.length <= 1 && (
                         <div className="p-3 border-t border-gray-200 bg-white">
                             <p className="text-xs text-gray-600 mb-2">Quick questions:</p>
                             <div className="flex flex-wrap gap-1">
@@ -220,7 +219,7 @@ export default function ChatAssistant({ projectId, projectName = "Project" }) {
                                 placeholder={projectId ? "Ask me about your project..." : "Select a project first"}
                                 className="flex-1 p-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 rows="1"
-                                disabled={!projectId || loading}
+                                disabled={loading}
                                 style={{ minHeight: '38px', maxHeight: '100px' }}
                             />
                             <button
