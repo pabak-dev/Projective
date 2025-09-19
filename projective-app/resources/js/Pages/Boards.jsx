@@ -585,7 +585,12 @@ const handleDragEnd = async (result) => {
                       )}
                     </Droppable>
                   ))}
-                  {selectedProject && <ChatAssistant projectId={selectedProject.id} />}
+                 {selectedProject && (
+    <ChatAssistant 
+        projectId={selectedProject.id} 
+        projectName={selectedProject.name}
+    />
+)}
                 </div>
               </DragDropContext>
             </div>
