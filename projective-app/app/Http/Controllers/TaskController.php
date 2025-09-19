@@ -37,31 +37,18 @@ class TaskController extends Controller
      * Update task
      * THIS IS THE CORRECTED FUNCTION
      */
-  public function update(Request $request, Task $task)
-{
-    $validatedData = $request->validate([
-        'title'       => 'sometimes|string|max:255',
-        'description' => 'sometimes|nullable|string',
-        'status'      => 'sometimes|string',
-        'due_date'    => 'sometimes|nullable|date',
-        'assignee_id' => 'sometimes|nullable|exists:users,id',
-        'priority'    => 'sometimes|string|in:low,medium,high',
-        'type'        => 'sometimes|string|in:task,bug,story',
-    ]);
-    
-    // Set completed_at when task status changes to 'done'
-    if (isset($validatedData['status'])) {
-        if ($validatedData['status'] === 'done' && $task->status !== 'done') {
-            $validatedData['completed_at'] = now();
-        } elseif ($validatedData['status'] !== 'done') {
-            $validatedData['completed_at'] = null;
-        }
-    }
-    
-    $task->update($validatedData);
+    public function update(Request $request, Task $task)
+    {
+        $request->validate([
+            'priority' => 'sometimes|in:high,medium,low',
+            'type'     => 'sometimes|in:task,meeting,milestone',
+            // other validation rules
+        ]);
 
-    return response()->json($task->loadCount(['comments','attachments'])->load(['assignedUser:id,name']));
-}
+        $task->update($request->all());
+
+        return redirect()->back();
+    }
 
     public function destroy(Task $task)
     {
