@@ -11,5 +11,7 @@ COPY . .
 # Install your project's specific Composer dependencies
 RUN composer install --optimize-autoloader --no-dev
 
+RUN mkdir -p /app/storage/framework/views /app/bootstrap/cache
+
 # This is a bitnami-specific step to ensure permissions are correct
 RUN chown -R 1001:1001 /app
