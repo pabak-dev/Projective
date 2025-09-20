@@ -34,11 +34,8 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # Install Composer dependencies
 RUN composer install --optimize-autoloader --no-dev
 
-# Set permissions during the build (good for base image state)
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-
 # Expose port 80 for Nginx
 EXPOSE 80
 
 # Define the command that will run when the container starts
-CMD ["sh", "-c", "mkdir -p storage/framework/views && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache && /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"]
+CMD ["sh", "-c", "chown -R www-data:www-data storage bootstrap/cache && mkdir -p storage/framework/views && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache && /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"]
