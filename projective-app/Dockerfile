@@ -34,8 +34,22 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # Install Composer dependencies
 RUN composer install --optimize-autoloader --no-dev
 
+# === THE RENDER EXAMPLE STRATEGY ===
+# 1. Generate the application key. This requires an .env file.
+RUN cp .env.example .env && php artisan key:generate
+
+# 2. Generate all cache files during the build.
+RUN php artisan config:cache
+RUN php artisan route:cache
+RUN php artisan view:cache
+
+# 3. Fix permissions of all storage and cache files created above.
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# === END STRATEGY ===
+
 # Expose port 80 for Nginx
 EXPOSE 80
 
-# Define the command that will run when the container starts
-CMD ["sh", "-c", "chown -R www-data:www-data storage bootstrap/cache && su -s /bin/sh -c 'php artisan migrate --force && php artisan config:cache && php artisan route:cache' www-data && /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"]
+# The CMD instruction will run when the container starts on Render.
+# It will first run migrations and then start the servers.
+CMD ["sh", "-c", "php artisan migrate --force && /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"]
