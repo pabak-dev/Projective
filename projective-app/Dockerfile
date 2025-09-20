@@ -38,4 +38,4 @@ RUN composer install --optimize-autoloader --no-dev
 EXPOSE 80
 
 # Define the command that will run when the container starts
-CMD ["sh", "-c", "chown -R www-data:www-data storage bootstrap/cache && mkdir -p storage/framework/views && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache && /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"]
+CMD ["sh", "-c", "chown -R www-data:www-data storage bootstrap/cache && php artisan migrate --force && php artisan config:cache && php artisan view:cache && /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"]
