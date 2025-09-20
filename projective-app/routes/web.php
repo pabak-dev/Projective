@@ -87,7 +87,7 @@ Route::middleware('auth')->prefix('api')->group(function () {
     Route::post('/tasks/{task}/attachments', [AttachmentController::class, 'store']);
     Route::delete('/attachments/{attachment}', [AttachmentController::class, 'destroy']);
     
-    Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar');
+ //   Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar');
     // API routes for leaderboard data (if needed for AJAX calls)
     Route::get('/leaderboard', [LeaderboardController::class, 'index']);
     Route::get('/user-stats', [LeaderboardController::class, 'userStats']);
