@@ -7,6 +7,7 @@ use App\Models\Task;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage; // Import the Storage facade
 use Inertia\Inertia;
 
 class DashboardController extends Controller
@@ -80,8 +81,8 @@ class DashboardController extends Controller
                 return [
                     'id' => $u->id,
                     'name' => $u->name,
-                    'avatar' => $u->avatar,
-                    'points' => $points, // ✅ fixed (was totalPoints)
+                    'avatar' => $u->avatar ? Storage::url($u->avatar) : null, // ✅ Correctly format the avatar URL
+                    'points' => $points,
                     'weeklyPoints' => $weeklyPoints,
                     'tasksCompleted' => $u->tasks->count(),
                 ];

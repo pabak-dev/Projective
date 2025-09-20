@@ -6,6 +6,7 @@ use App\Models\Task;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class CalendarController extends Controller
 {
@@ -13,8 +14,8 @@ class CalendarController extends Controller
      * Display the calendar with tasks filtered by period/date.
      *
      * Query parameters:
-     *  - period: 'monthly' (default), 'weekly', 'daily', 'all_time'
-     *  - date: optional ISO date (YYYY-MM-DD) used as the reference date (defaults to today)
+     * - period: 'monthly' (default), 'weekly', 'daily', 'all_time'
+     * - date: optional ISO date (YYYY-MM-DD) used as the reference date (defaults to today)
      */
     public function index(Request $request)
     {
@@ -28,8 +29,10 @@ class CalendarController extends Controller
             $date = Carbon::today();
         }
 
-        // Base query: tasks that have a due date
-        $query = Task::whereNotNull('due_date');
+        // Base query: tasks that have a due date and are assigned to the current user
+        // MODIFICATION: Added with('project') to eager load the project relationship
+        $query = Task::with('project')->where('assignee_id', Auth::id())
+            ->whereNotNull('due_date');
 
         if ($period === 'monthly') {
             $start = $date->copy()->startOfMonth()->startOfDay();
@@ -45,7 +48,7 @@ class CalendarController extends Controller
             $end = $date->copy()->endOfDay();
             $query->whereBetween('due_date', [$start->toDateString(), $end->toDateString()]);
         } elseif ($period === 'all_time') {
-            // leave the base query (all tasks with due_date)
+            // leave the base query (all tasks with due_date assigned to the user)
         } else {
             // If unknown period, default to monthly
             $start = $date->copy()->startOfMonth()->startOfDay();
