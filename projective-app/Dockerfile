@@ -34,22 +34,21 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # Install Composer dependencies
 RUN composer install --optimize-autoloader --no-dev
 
-# === THE FINAL FIX ===
-# 1. Generate the application key.
-RUN cp .env.example .env && php artisan key:generate
-
-# 2. **Create the missing directory BEFORE caching.**
+# === THE FINAL STRATEGY ===
+# 1. Create the missing directory for the view cache.
 RUN mkdir -p storage/framework/views
 RUN mkdir -p storage/framework/cache
 
-# 3. Generate all cache files during the build.
+# 2. Generate all cache files during the build.
+#    These commands will use the build-time ENV vars if available,
+#    but will fall back gracefully. The runtime ENV vars will be used by the CMD.
 RUN php artisan config:cache
 RUN php artisan route:cache
 RUN php artisan view:cache
 
-# 4. Fix permissions of all storage and cache files created above.
+# 3. Fix permissions of all storage and cache files.
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-# === END FIX ===
+# === END STRATEGY ===
 
 # Expose port 80 for Nginx
 EXPOSE 80
