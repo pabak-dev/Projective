@@ -1,9 +1,10 @@
 FROM php:8.2-fpm
 
-# Install system dependencies for Laravel, Nginx, and Supervisor
+# Install system dependencies, INCLUDING dos2unix
 RUN apt-get update && apt-get install -y \
     nginx \
     supervisor \
+    dos2unix \
     git \
     unzip \
     libpng-dev \
@@ -33,9 +34,13 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # Install Composer dependencies
 RUN composer install --optimize-autoloader --no-dev
 
-# Copy the entrypoint script and make it executable
+# Copy the entrypoint script
 COPY entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# ** THIS IS THE FIX **
+# Convert line endings and make the script executable
+RUN dos2unix /usr/local/bin/entrypoint.sh && \
+    chmod +x /usr/local/bin/entrypoint.sh
 
 # Expose port 80 for Nginx
 EXPOSE 80
