@@ -27,4 +27,18 @@ class Project extends Model
     {
         return $this->belongsToMany(User::class, 'project_user')->withPivot('role')->withTimestamps();
     }
+
+    /**
+     * The "booted" method of the model.
+     *
+     * @return void
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleting(function ($project) {
+            $project->tasks()->delete();
+        });
+    }
 }
