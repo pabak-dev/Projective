@@ -34,22 +34,25 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # Install Composer dependencies
 RUN composer install --optimize-autoloader --no-dev
 
-# === THE RENDER EXAMPLE STRATEGY ===
-# 1. Generate the application key. This requires an .env file.
+# === THE FINAL FIX ===
+# 1. Generate the application key.
 RUN cp .env.example .env && php artisan key:generate
 
-# 2. Generate all cache files during the build.
+# 2. **Create the missing directory BEFORE caching.**
+RUN mkdir -p storage/framework/views
+RUN mkdir -p storage/framework/cache
+
+# 3. Generate all cache files during the build.
 RUN php artisan config:cache
 RUN php artisan route:cache
 RUN php artisan view:cache
 
-# 3. Fix permissions of all storage and cache files created above.
+# 4. Fix permissions of all storage and cache files created above.
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-# === END STRATEGY ===
+# === END FIX ===
 
 # Expose port 80 for Nginx
 EXPOSE 80
 
 # The CMD instruction will run when the container starts on Render.
-# It will first run migrations and then start the servers.
 CMD ["sh", "-c", "php artisan migrate --force && /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"]
