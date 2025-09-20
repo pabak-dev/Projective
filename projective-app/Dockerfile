@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y curl && apt-get clean
 RUN curl -sL https://deb.nodesource.com/setup_18.x | bash -
 RUN apt-get install -y nodejs
 # Switch back to the non-root user
-USER 1001
+#USER 1001
 # --- End Node.js Install ---
 
 # Set the working directory
