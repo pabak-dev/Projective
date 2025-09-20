@@ -1,77 +1,38 @@
-# projective-app/Dockerfile
+FROM php:8.2-fpm
 
-#----------------------------------------------------------------
-# Stage 1: PHP Base & Dependencies
-#----------------------------------------------------------------
-FROM php:8.3-fpm-bookworm AS base
-
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    nginx supervisor libpng-dev libzip-dev libjpeg-dev \
-    libfreetype6-dev libonig-dev git zip unzip \
-    --no-install-recommends && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    git \
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    unzip
 
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd pdo_mysql zip opcache mbstring exif pcntl bcmath sockets
+# Install PHP extensions
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
+# Get latest Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-WORKDIR /var/www
 
-#----------------------------------------------------------------
-# Stage 2: Build Frontend Assets
-#----------------------------------------------------------------
-FROM node:20-bookworm AS frontend_builder
+# Set working directory
+WORKDIR /var/www/html
 
-WORKDIR /app
+# Copy existing application directory contents
+COPY . .
 
-COPY package.json ./
-RUN npm install
+# Install composer dependencies
+RUN composer install --no-scripts --no-autoloader
+RUN composer dump-autoload --optimize
 
-COPY vite.config.js ./
-COPY resources ./resources
-RUN npm run build
+# Create a non-root user and set permissions
+RUN groupadd -g 1000 www && useradd -u 1000 -ms /bin/bash -g www www
+RUN chown -R www:www /var/www/html
 
-#----------------------------------------------------------------
-# Stage 3: Final Production Image
-#----------------------------------------------------------------
-FROM base AS final
+# Change current user to www
+USER www
 
-COPY php/www.conf /usr/local/etc/php-fpm.d/www.conf
-
-# Copy configurations first
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY nginx/default.conf /etc/nginx/sites-enabled/default
-
-WORKDIR /var/www
-
-# Copy the entire application source code
-COPY --chown=www-data:www-data . .
-# Copy the built frontend assets
-COPY --from=frontend_builder --chown=www-data:www-data /app/public/build ./public/build
-
-# Now run composer install
-RUN composer install --optimize-autoloader
-
-# Create all necessary framework directories and set permissions.
-RUN mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data \
-    && chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
-
-# Switch to the www-data user to run the caching commands.
-USER www-data
-RUN php artisan config:cache
-RUN php artisan route:cache
-RUN php artisan view:cache
-
-# Switch back to root to start the server
-USER root
-
-RUN php artisan config:cache
-RUN php artisan route:cache
-RUN php artisan view:cache
-
-EXPOSE 80
-
-# ⬇️ --- THIS IS THE FINAL CHANGE --- ⬇️
-# Use the shell form of CMD to run migrations first, then start the server.
-CMD php artisan migrate --force && /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+# Expose port 9000 and start php-fpm server
+EXPOSE 9000
+CMD ["php-fpm"]
