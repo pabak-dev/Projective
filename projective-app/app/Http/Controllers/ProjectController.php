@@ -29,9 +29,8 @@ class ProjectController extends Controller
         // Attach the user as a member with the 'owner' role
         $project->members()->attach(Auth::id(), ['role' => 'owner']);
 
-        return response()->json($project->load('owner'), 201);
+        return response()->json($project->load(['owner:id,name', 'members:id,name']), 201);
     }
-
     public function show(Project $project)
     {
         Gate::authorize('view', $project);
