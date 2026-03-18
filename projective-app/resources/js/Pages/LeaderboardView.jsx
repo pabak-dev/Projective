@@ -1,8 +1,7 @@
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import React, { useState } from 'react';
-import { router, usePage, Link } from '@inertiajs/react'; // <-- Added Link
+import { router, usePage, Link } from '@inertiajs/react'; 
 
-// Add default values to the props here
 export default function LeaderboardView({
     topPerformers = [],
     pointSystem = { taskCompletion: [], bonusPoints: [] },
@@ -12,21 +11,57 @@ export default function LeaderboardView({
   const { period } = usePage().props;
   const [selectedPeriod, setSelectedPeriod] = useState(period || 'monthly');
 
-  // Function runs when the dropdown value changes
+
   const handlePeriodChange = (e) => {
     const newPeriod = e.target.value;
     setSelectedPeriod(newPeriod);
 
-    // Make a new request to the same page with a 'period' query parameter
     router.get(route('leaderboard'), { period: newPeriod }, {
       preserveState: true,
       replace: true,
     });
   };
+  
+  const handleExport = () => {
+    if (!topPerformers || topPerformers.length === 0) {
+      alert("No data available to export!");
+      return;
+    }
+
+    const headers = ['Rank', 'Name', 'Role', 'Total Points', 'Change'];
+
+    
+    const csvRows = topPerformers.map(user => [
+      user.rank,
+      `"${user.name}"`, 
+      `"${user.role}"`,
+      user.points,
+      `"${user.weeklyChange}"`
+    ]);
+
+   
+    const csvContent = [
+      headers.join(','),
+      ...csvRows.map(row => row.join(','))
+    ].join('\n');
+
+  
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+   
+    link.setAttribute('href', url);
+    link.setAttribute('download', `leaderboard_${selectedPeriod}.csv`);
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="leaderboard-view">
-      {/* ---------- HEADER ---------- */}
+     
       <div className="leaderboard-header">
         <div className="leaderboard-title-section">
           <h1 className="leaderboard-title">Team Leaderboard</h1>
@@ -44,16 +79,16 @@ export default function LeaderboardView({
             <option value="weekly">This Week</option>
             <option value="all">All Time</option>
           </select>
-          <button className="export-btn">
-            <ArrowDownTrayIcon className="w-4 h-4" />
-            Export
-          </button>
+         <button onClick={handleExport} className="export-btn hover:bg-indigo-600 hover:text-white transition">
+  <ArrowDownTrayIcon className="w-4 h-4" />
+  Export
+</button>
         </div>
       </div>
 
-      {/* ---------- MAIN CONTENT ---------- */}
+      
       <div className="leaderboard-content">
-        {/* ---------- LEFT SIDE ---------- */}
+      
         <div className="leaderboard-left">
           {/* Top Performers */}
           <div className="top-performers-section">
@@ -78,7 +113,7 @@ export default function LeaderboardView({
                     />
                   </div>
                   <div className="performer-info">
-                    {/* Make the name a Link */}
+                   
                     <Link href={route('users.show', { user: performer.id })} className="performer-name font-semibold text-gray-800 hover:underline">
                                             {performer.name}
                                         </Link>
@@ -103,7 +138,6 @@ export default function LeaderboardView({
             </div>
           </div>
 
-          {/* Point System */}
           <div className="point-system-section">
             <h2 className="section-title">Point System</h2>
             <div className="point-system-grid">
@@ -139,9 +173,9 @@ export default function LeaderboardView({
           </div>
         </div>
 
-        {/* ---------- RIGHT SIDE ---------- */}
+     
         <div className="leaderboard-right">
-          {/* Your Stats */}
+          
           <div className="your-stats-section">
             <h2 className="section-title">Your Stats</h2>
             <div className="stats-grid">
@@ -166,7 +200,7 @@ export default function LeaderboardView({
             </div>
           </div>
 
-          {/* Achievements */}
+         
 <div className="achievements-section">
   <h2 className="section-title">Achievements</h2>
   <div className="achievements-list">
@@ -201,7 +235,7 @@ export default function LeaderboardView({
             {achievement.description}
           </div>
           
-          {/* Add Progress Bar */}
+          
           {achievement.progress && (
             <div className="progress-container" style={{ marginTop: '8px' }}>
               <div className="progress-text" style={{ 

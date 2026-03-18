@@ -64,7 +64,7 @@ class LeaderboardController extends Controller
         return response()->json($this->getUserStatsData($period, $leaderboardData));
     }
 
-    private function getLeaderboardData($period)
+  private function getLeaderboardData($period)
     {
         $dates = $this->getDateRange($period);
 
@@ -77,7 +77,8 @@ class LeaderboardController extends Controller
             }])
             ->get()
             ->map(function ($user) use ($period) {
-                $totalPoints = $this->calculateUserPoints($user, clone $user->tasks);
+                
+                $totalPoints = $this->calculateUserPoints($user, $user->tasks);
                 $weeklyPoints = $this->calculateWeeklyPoints($user);
                 
                 return [
@@ -88,7 +89,7 @@ class LeaderboardController extends Controller
                     'totalPoints' => $totalPoints,
                     'weeklyPoints' => $weeklyPoints,
                     'tasksCompleted' => $user->tasks->count(),
-                    'avatar' => clone $user->avatar,
+                    'avatar' => $user->avatar, 
                 ];
             })
             ->sortByDesc('totalPoints')
@@ -160,12 +161,15 @@ class LeaderboardController extends Controller
     private function calculateWeeklyPoints($user)
     {
         $dates = $this->getDateRange('weekly');
-        $weeklyTasks = clone $user->tasks()
+        
+      
+        $weeklyTasks = $user->tasks()
             ->where('status', 'done')
             ->whereBetween('updated_at', $dates)
             ->get();
             
-        return $this->calculateUserPoints($user, clone $weeklyTasks);
+
+        return $this->calculateUserPoints($user, $weeklyTasks);
     }
 
     private function getDateRange($period)
@@ -211,7 +215,7 @@ class LeaderboardController extends Controller
         ];
     }
 
-    private function getUserAchievements($user)
+   private function getUserAchievements($user)
     {
         $completedTasks = $user->tasks()->where('status', 'done')->get();
         
@@ -220,34 +224,42 @@ class LeaderboardController extends Controller
                 'description' => 'Complete tasks before deadline',
                 'calculate' => function() use ($completedTasks) {
                     return $completedTasks->filter(function ($task) {
-                        if ($task->completed_at && $task->due_date) {
-                            return new \DateTime($task->completed_at) < new \DateTime($task->due_date);
+                        // Smart logic: completed_at না থাকলে updated_at দিয়ে চেক করবে
+                        $doneDate = $task->completed_at ?? $task->updated_at;
+                        if ($doneDate && $task->due_date) {
+                            return new \DateTime($doneDate) <= new \DateTime($task->due_date);
                         }
                         return false;
                     })->count();
                 },
-                'target' => max(3, ceil($completedTasks->count() * 0.3))
+                'base_target' => 3 // প্রতি ৩টি ফাস্ট টাস্কে ১ লেভেল আপ
             ],
             'Bug Hunter' => [
-                'description' => 'Fix bug tasks',
+                'description' => 'Fix bugs and issues',
                 'calculate' => function() use ($completedTasks) {
-                    return $completedTasks->where('type', 'bug')->count();
+                    return $completedTasks->filter(function ($task) {
+                        // Smart logic: টাস্কের টাইপ bug না হলেও টাইটেলে bug, fix বা issue থাকলে কাউন্ট হবে
+                        return $task->type === 'bug' || 
+                               stripos($task->title, 'bug') !== false || 
+                               stripos($task->title, 'fix') !== false ||
+                               stripos($task->title, 'issue') !== false;
+                    })->count();
                 },
-                'target' => max(3, ceil($completedTasks->count() * 0.2))
+                'base_target' => 2 // প্রতি ২টি বাগ ফিক্সে ১ লেভেল আপ
             ],
             'Team Player' => [
-                'description' => 'Make helpful comments',
+                'description' => 'Help team with comments',
                 'calculate' => function() use ($user) {
                     return $user->comments()->count();
                 },
-                'target' => max(10, $completedTasks->count() * 2)
+                'base_target' => 5 // প্রতি ৫টি কমেন্টে ১ লেভেল আপ
             ],
             'Task Master' => [
-                'description' => 'Complete tasks',
+                'description' => 'Complete assigned tasks',
                 'calculate' => function() use ($completedTasks) {
                     return $completedTasks->count();
                 },
-                'target' => max(10, 15)
+                'base_target' => 10 // প্রতি ১০টি টাস্কে ১ লেভেল আপ
             ]
         ];
 
@@ -255,8 +267,20 @@ class LeaderboardController extends Controller
         
         foreach ($achievementDefinitions as $name => $definition) {
             $currentProgress = $definition['calculate']();
-            $targetProgress = $definition['target'];
-            $isEarned = $currentProgress >= $targetProgress;
+            $baseTarget = $definition['base_target'];
+            
+            // Magic: Dynamic Leveling System 
+            // টার্গেট পূরণ হয়ে গেলে অটোমেটিক নতুন টার্গেট সেট হবে!
+            if ($currentProgress == 0) {
+                $targetProgress = $baseTarget;
+            } elseif ($currentProgress > 0 && $currentProgress % $baseTarget == 0) {
+                $targetProgress = $currentProgress; // টার্গেটে হিট করলে বার 100% ফুল দেখাবে
+            } else {
+                $targetProgress = ceil($currentProgress / $baseTarget) * $baseTarget; // পরবর্তী টার্গেট
+            }
+            
+            $isEarned = ($currentProgress > 0 && $currentProgress >= $targetProgress);
+            
             
             $userAchievement = UserAchievement::updateOrCreate(
                 ['user_id' => $user->id, 'achievement_name' => $name],
@@ -265,16 +289,16 @@ class LeaderboardController extends Controller
                     'current_progress' => $currentProgress,
                     'target_progress' => $targetProgress,
                     'is_earned' => $isEarned,
-                    'earned_at' => $isEarned && !UserAchievement::where('user_id', $user->id)
-                        ->where('achievement_name', $name)
-                        ->where('is_earned', true)
-                        ->exists() ? now() : null
+                    'earned_at' => $isEarned ? now() : null
                 ]
             );
 
+           
+            $level = ceil($targetProgress / $baseTarget);
+
             $achievements[] = [
                 'name' => $name,
-                'description' => "{$definition['description']} ({$targetProgress} needed)",
+                'description' => "{$definition['description']} (Level {$level})", // লেভেল ডায়নামিক
                 'earned' => $isEarned,
                 'progress' => ['current' => $currentProgress, 'target' => $targetProgress],
                 'earned_at' => $userAchievement->earned_at
@@ -283,7 +307,6 @@ class LeaderboardController extends Controller
 
         return $achievements;
     }
-
     private function formatAchievements($achievements)
     {
         return collect($achievements)->map(function ($achievement) {

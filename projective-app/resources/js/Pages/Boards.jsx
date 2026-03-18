@@ -50,7 +50,7 @@ export default function Boards() {
 
   useEffect(() => { fetchProjects(); fetchUsers(); }, []);
 
-  // users লোড হওয়ার পরে fetchTasks চালাও
+
   useEffect(() => {
     if (selectedProject && users.length > 0) {
       fetchTasks(selectedProject.id);
@@ -71,7 +71,6 @@ export default function Boards() {
     } catch (error) { console.error("Failed to fetch projects:", error); }
   };
 
-  // assignedUser fallback সহ fetchTasks
   const fetchTasks = async (projectId) => {
     if (!projectId) return;
     try {
@@ -101,7 +100,7 @@ export default function Boards() {
     } catch (error) { console.error("Failed to fetch users:", error); }
   };
 
-  // --- CORE KANBAN LOGIC ---
+  
   const addTask = async (status) => {
     if (!newTask[status].trim() || !selectedProject) return;
     try {
@@ -142,16 +141,19 @@ export default function Boards() {
     });
     
     try {
-      await axios.put(`/api/tasks/${moved.id}`, { status: moved.status });
+      
+      await axios.post(`/api/tasks/${moved.id}`, { 
+          _method: 'PUT', 
+          status: moved.status 
+      });
     } catch (error) {
-      console.error("Failed to update task status:", error);
-      alert("Failed to update task status! Check server routes.");
-      // Optional: re-fetch tasks here to revert the UI if backend fails
-      // fetchTasks(selectedProject.id);
+      console.error("Failed to update task status:", error.response?.data || error);
+      alert("Failed to update task status! Server rejected the request.");
+      fetchTasks(selectedProject.id); 
     }
   };
 
-  // --- PROJECT MANAGEMENT ---
+
   const handleCreateProject = async (e) => {
     e.preventDefault();
     try {
@@ -240,7 +242,7 @@ export default function Boards() {
     }
   };
 
-  // --- TASK MANAGEMENT (MODAL) ---
+
   const openTaskModal = async (task) => {
     try {
       const res = await axios.get(`/api/tasks/${task.id}`);
@@ -269,7 +271,7 @@ export default function Boards() {
     try {
       await axios.delete(`/api/tasks/${taskId}`);
       setTaskModalOpen(false);
-      fetchTasks(selectedProject.id); 
+      fetchTasks(selectedProject.id);
     } catch (error) {
       console.error("Failed to delete task:", error);
     }
@@ -353,27 +355,34 @@ export default function Boards() {
 
   const updateDueDate = async (date) => {
     try {
-      const res = await axios.put(`/api/tasks/${selectedTask.id}`, {
+      const res = await axios.post(`/api/tasks/${selectedTask.id}`, {
+        ...selectedTask,
+        _method: 'PUT',
         due_date: date,
       });
       setSelectedTask(res.data);
       updateTaskInState(res.data);
     } catch (error) {
-      console.error("Failed to update due date:", error);
-      alert("Failed to update due date. Check server console.");
+      const errorMsg = error.response?.data?.message || "Unknown server error";
+      console.error("Backend Error:", error.response?.data);
+      alert("Laravel says: " + errorMsg);
     }
   };
 
+ 
   const updateDescription = async (e) => {
     try {
-      const res = await axios.put(`/api/tasks/${selectedTask.id}`, {
+      const res = await axios.post(`/api/tasks/${selectedTask.id}`, {
+        ...selectedTask,
+        _method: 'PUT',
         description: e.target.value,
       });
       setSelectedTask(res.data);
       updateTaskInState(res.data);
     } catch (error) {
-      console.error("Failed to update description:", error);
-      alert("Failed to update description. Check server console.");
+      const errorMsg = error.response?.data?.message || "Unknown server error";
+      console.error("Backend Error:", error.response?.data);
+      alert("Laravel says: " + errorMsg);
     }
   };
 
@@ -641,9 +650,7 @@ export default function Boards() {
         </main>
       </div>
 
-      {/* --- ALL MODALS --- */}
-
-      {/* Create New Project Modal */}
+      
       <Modal
         show={isNewProjectModalOpen}
         onClose={() => setNewProjectModalOpen(false)}
@@ -771,7 +778,7 @@ export default function Boards() {
         </form>
       </Modal>
 
-      {/* Confirm Delete Modal */}
+   
       <Modal
         show={isConfirmDeleteModalOpen}
         onClose={() => setConfirmDeleteModalOpen(false)}
@@ -792,7 +799,7 @@ export default function Boards() {
         </div>
       </Modal>
 
-      {/* Project Details Modal */}
+     
       <Modal
         show={isProjectDetailsModalOpen}
         onClose={() => setProjectDetailsModalOpen(false)}
@@ -826,7 +833,7 @@ export default function Boards() {
         )}
       </Modal>
 
-      {/* Manage Members Modal */}
+      
       <Modal
         show={isManageMembersModalOpen}
         onClose={() => setManageMembersModalOpen(false)}
@@ -886,7 +893,7 @@ export default function Boards() {
         </div>
       </Modal>
 
-      {/* Task Details Modal */}
+      
       <Modal show={isTaskModalOpen} onClose={() => setTaskModalOpen(false)}>
         {selectedTask && (
           <div className="p-6">
@@ -918,7 +925,7 @@ export default function Boards() {
             </div>
 
             <div className="mt-4 space-y-4">
-              {/* Assignee Section */}
+              
               <div className="flex items-center space-x-2">
                 <span className="font-semibold">Assignee:</span>
                 {isOwner ? (
@@ -941,17 +948,17 @@ export default function Boards() {
                 )}
               </div>
 
-              {/* Due Date Section */}
+              
               <div className="flex items-center space-x-2">
                 <span className="font-semibold">Due Date:</span>
                 <input
                   type="date"
-                  value={selectedTask.due_date || ""}
+                  value={selectedTask.due_date ? selectedTask.due_date.substring(0, 10) : ""}
                   onChange={(e) => {
                     const newDate = e.target.value;
                     setSelectedTask({ ...selectedTask, due_date: newDate });
                   }}
-                  onBlur={() => updateDueDate(selectedTask.due_date)}
+                  onBlur={(e) => updateDueDate(e.target.value)}
                   readOnly={!isOwner}
                   className={`block w-full text-sm rounded-md shadow-sm ${
                     !isOwner
@@ -961,7 +968,6 @@ export default function Boards() {
                 />
               </div>
 
-              {/* Description Section */}
               <div>
                 <span className="font-semibold">Description:</span>
                 <textarea
@@ -979,7 +985,6 @@ export default function Boards() {
               </div>
             </div>
 
-            {/* Attachments Section */}
             <div className="mt-6 border-t pt-4">
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <Paperclip size={18} /> Attachments
