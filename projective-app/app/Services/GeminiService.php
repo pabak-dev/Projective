@@ -12,8 +12,9 @@ class GeminiService
 
     public function __construct()
     {
-        $this->apiKey = env("GEMINI_API_KEY");
-        $this->baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+        
+        $this->apiKey = env("GROK_API_KEY");
+        $this->baseUrl = "https://api.groq.com/openai/v1/chat/completions";
     }
 
     public function getResponse(string $prompt): string
@@ -23,37 +24,38 @@ class GeminiService
         }
 
         try {
-            $response = Http::timeout(30)->post($this->baseUrl . "?key=" . $this->apiKey, [
-                "contents" => [
-                    [
-                        "parts" => [
-                            ["text" => $prompt]
+            $response = Http::withToken($this->apiKey)
+                ->timeout(30)
+                ->post($this->baseUrl, [
+                    "model" => "llama3-8b-8192", 
+                    "messages" => [
+                        [
+                            "role" => "system",
+                            "content" => "You are a helpful assistant."
+                        ],
+                        [
+                            "role" => "user",
+                            "content" => $prompt
                         ]
-                    ]
-                ],
-                "generationConfig" => [
+                    ],
                     "temperature" => 0.3,
-                    "topP" => 0.8,
-                    "maxOutputTokens" => 1000,
-                ]
-            ]);
+                ]);
 
             if ($response->failed()) {
-                Log::error("Gemini API failed", [
+                Log::error("Groq API failed", [
                     "status" => $response->status(),
                     "body" => $response->body()
                 ]);
-                return "I apologize, but the AI service is currently unavailable. Please try again later.";
+                return "API Error: " . $response->body(); 
             }
 
             $responseData = $response->json();
-
-            return $responseData["candidates"][0]["content"]["parts"][0]["text"] ?? 
+            return $responseData["choices"][0]["message"]["content"] ?? 
                    "I could not generate a response at this time.";
 
         } catch (\Exception $e) {
-            Log::error("GeminiService error: " . $e->getMessage());
-            return "I encountered an error while processing your request. Please try again.";
+            Log::error("GroqService error: " . $e->getMessage());
+            return "Error: " . $e->getMessage();
         }
     }
 }

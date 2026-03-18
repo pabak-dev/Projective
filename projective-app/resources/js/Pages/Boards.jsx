@@ -50,7 +50,7 @@ export default function Boards() {
 
   useEffect(() => { fetchProjects(); fetchUsers(); }, []);
 
-  // ✅ users লোড হওয়ার পরে fetchTasks চালাও
+  // users লোড হওয়ার পরে fetchTasks চালাও
   useEffect(() => {
     if (selectedProject && users.length > 0) {
       fetchTasks(selectedProject.id);
@@ -71,7 +71,7 @@ export default function Boards() {
     } catch (error) { console.error("Failed to fetch projects:", error); }
   };
 
-  // ✅ assignedUser fallback সহ fetchTasks
+  // assignedUser fallback সহ fetchTasks
   const fetchTasks = async (projectId) => {
     if (!projectId) return;
     try {
@@ -104,18 +104,23 @@ export default function Boards() {
   // --- CORE KANBAN LOGIC ---
   const addTask = async (status) => {
     if (!newTask[status].trim() || !selectedProject) return;
-    const res = await axios.post(
-      `/api/projects/${selectedProject.id}/tasks`,
-      {
-        title: newTask[status],
-        status,
-      }
-    );
-    setTasks({ ...tasks, [status]: [...tasks[status], res.data] });
-    setNewTask({ ...newTask, [status]: "" });
+    try {
+      const res = await axios.post(
+        `/api/projects/${selectedProject.id}/tasks`,
+        {
+          title: newTask[status],
+          status,
+        }
+      );
+      setTasks({ ...tasks, [status]: [...tasks[status], res.data] });
+      setNewTask({ ...newTask, [status]: "" });
+    } catch (error) {
+      console.error("Failed to add task:", error);
+      alert("Failed to create task! Please check server console.");
+    }
   };
 
-const handleDragEnd = async (result) => {
+  const handleDragEnd = async (result) => {
     if (!result.destination) return;
     const { source, destination } = result;
     if (
@@ -136,9 +141,16 @@ const handleDragEnd = async (result) => {
         [destination.droppableId]: destTasks,
     });
     
-    // This call will now trigger the completed_at timestamp
-    await axios.put(`/api/tasks/${moved.id}`, { status: moved.status });
-};
+    try {
+      await axios.put(`/api/tasks/${moved.id}`, { status: moved.status });
+    } catch (error) {
+      console.error("Failed to update task status:", error);
+      alert("Failed to update task status! Check server routes.");
+      // Optional: re-fetch tasks here to revert the UI if backend fails
+      // fetchTasks(selectedProject.id);
+    }
+  };
+
   // --- PROJECT MANAGEMENT ---
   const handleCreateProject = async (e) => {
     e.preventDefault();
@@ -229,20 +241,17 @@ const handleDragEnd = async (result) => {
   };
 
   // --- TASK MANAGEMENT (MODAL) ---
-  // ✅ Fixed openTaskModal to properly load assigned user data
   const openTaskModal = async (task) => {
     try {
       const res = await axios.get(`/api/tasks/${task.id}`);
       const taskData = res.data;
       
-      // Ensure assigned user data is properly loaded
       if (taskData.assignee_id && !taskData.assignedUser) {
         const assignedUser = users.find(u => u.id == taskData.assignee_id) || 
                             allUsers.find(u => u.id == taskData.assignee_id);
         if (assignedUser) {
           taskData.assignedUser = assignedUser;
         } else {
-          // Fallback for when user data is not found
           taskData.assignedUser = { id: taskData.assignee_id, name: `User ${taskData.assignee_id}` };
         }
       }
@@ -260,7 +269,7 @@ const handleDragEnd = async (result) => {
     try {
       await axios.delete(`/api/tasks/${taskId}`);
       setTaskModalOpen(false);
-      fetchTasks(selectedProject.id); // Re-fetch all tasks to update the board
+      fetchTasks(selectedProject.id); 
     } catch (error) {
       console.error("Failed to delete task:", error);
     }
@@ -274,31 +283,38 @@ const handleDragEnd = async (result) => {
       );
     });
     setTasks(newTasks);
-    // Re-fetch all tasks to ensure counts are updated correctly
     fetchTasks(selectedProject.id);
   };
 
   const addComment = async () => {
     if (!newComment.trim()) return;
-    const res = await axios.post(`/api/tasks/${selectedTask.id}/comments`, {
-      user_id: auth.user.id,
-      content: newComment,
-    });
-    setComments([...comments, res.data]);
-    setNewComment("");
-    updateTaskInState({
-      ...selectedTask,
-      comments_count: (selectedTask.comments_count || 0) + 1,
-    });
+    try {
+      const res = await axios.post(`/api/tasks/${selectedTask.id}/comments`, {
+        user_id: auth.user.id,
+        content: newComment,
+      });
+      setComments([...comments, res.data]);
+      setNewComment("");
+      updateTaskInState({
+        ...selectedTask,
+        comments_count: (selectedTask.comments_count || 0) + 1,
+      });
+    } catch (error) {
+      console.error("Failed to add comment:", error);
+    }
   };
 
   const deleteComment = async (id) => {
-    await axios.delete(`/api/comments/${id}`);
-    setComments(comments.filter((c) => c.id !== id));
-    updateTaskInState({
-      ...selectedTask,
-      comments_count: selectedTask.comments_count - 1,
-    });
+    try {
+      await axios.delete(`/api/comments/${id}`);
+      setComments(comments.filter((c) => c.id !== id));
+      updateTaskInState({
+        ...selectedTask,
+        comments_count: selectedTask.comments_count - 1,
+      });
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
+    }
   };
 
   const uploadAttachment = async (e) => {
@@ -306,44 +322,61 @@ const handleDragEnd = async (result) => {
     if (!selectedTask || !selectedFile) return;
     const formData = new FormData();
     formData.append("file", selectedFile);
-    const res = await axios.post(
-      `/api/tasks/${selectedTask.id}/attachments`,
-      formData
-    );
-    setAttachments([...attachments, res.data]);
-    setSelectedFile(null);
-    updateTaskInState({
-      ...selectedTask,
-      attachments_count: (selectedTask.attachments_count || 0) + 1,
-    });
+    try {
+      const res = await axios.post(
+        `/api/tasks/${selectedTask.id}/attachments`,
+        formData
+      );
+      setAttachments([...attachments, res.data]);
+      setSelectedFile(null);
+      updateTaskInState({
+        ...selectedTask,
+        attachments_count: (selectedTask.attachments_count || 0) + 1,
+      });
+    } catch (error) {
+      console.error("Failed to upload attachment:", error);
+    }
   };
 
   const deleteAttachment = async (id) => {
-    await axios.delete(`/api/attachments/${id}`);
-    setAttachments(attachments.filter((a) => a.id !== id));
-    updateTaskInState({
-      ...selectedTask,
-      attachments_count: selectedTask.attachments_count - 1,
-    });
+    try {
+      await axios.delete(`/api/attachments/${id}`);
+      setAttachments(attachments.filter((a) => a.id !== id));
+      updateTaskInState({
+        ...selectedTask,
+        attachments_count: selectedTask.attachments_count - 1,
+      });
+    } catch (error) {
+      console.error("Failed to delete attachment:", error);
+    }
   };
 
   const updateDueDate = async (date) => {
-    const res = await axios.put(`/api/tasks/${selectedTask.id}`, {
-      due_date: date,
-    });
-    setSelectedTask(res.data);
-    updateTaskInState(res.data);
+    try {
+      const res = await axios.put(`/api/tasks/${selectedTask.id}`, {
+        due_date: date,
+      });
+      setSelectedTask(res.data);
+      updateTaskInState(res.data);
+    } catch (error) {
+      console.error("Failed to update due date:", error);
+      alert("Failed to update due date. Check server console.");
+    }
   };
 
   const updateDescription = async (e) => {
-    const res = await axios.put(`/api/tasks/${selectedTask.id}`, {
-      description: e.target.value,
-    });
-    setSelectedTask(res.data);
-    updateTaskInState(res.data);
+    try {
+      const res = await axios.put(`/api/tasks/${selectedTask.id}`, {
+        description: e.target.value,
+      });
+      setSelectedTask(res.data);
+      updateTaskInState(res.data);
+    } catch (error) {
+      console.error("Failed to update description:", error);
+      alert("Failed to update description. Check server console.");
+    }
   };
 
-  // ✅ Fixed assignTask to properly handle assigned user data
   const assignTask = async (userId) => {
     try {
       let response;
@@ -357,7 +390,6 @@ const handleDragEnd = async (result) => {
 
       const updatedTask = response.data.task || response.data;
       
-      // Make sure to include the assigned user information
       if (updatedTask.assignee_id && !updatedTask.assignedUser) {
         const assignedUser = users.find(u => u.id == updatedTask.assignee_id) || 
                             allUsers.find(u => u.id == updatedTask.assignee_id);
@@ -375,7 +407,6 @@ const handleDragEnd = async (result) => {
     }
   };
 
-  // Check if current user can manage comments and attachments
   const canManageCommentsAndAttachments = () => {
     if (!selectedTask) return false;
     return isOwner || isAssignee;
@@ -585,13 +616,13 @@ const handleDragEnd = async (result) => {
                       )}
                     </Droppable>
                   ))}
-         {selectedProject && (
-  <ChatAssistant 
-    projectId={selectedProject.id} 
-    projectName={selectedProject.name}
-    boardTasks={tasks}
-  />
-)}
+                  {selectedProject && (
+                    <ChatAssistant 
+                      projectId={selectedProject.id} 
+                      projectName={selectedProject.name}
+                      boardTasks={tasks}
+                    />
+                  )}
                 </div>
               </DragDropContext>
             </div>
@@ -855,7 +886,7 @@ const handleDragEnd = async (result) => {
         </div>
       </Modal>
 
-      {/* Task Details Modal - ✅ Fixed assignee display */}
+      {/* Task Details Modal */}
       <Modal show={isTaskModalOpen} onClose={() => setTaskModalOpen(false)}>
         {selectedTask && (
           <div className="p-6">
@@ -887,7 +918,7 @@ const handleDragEnd = async (result) => {
             </div>
 
             <div className="mt-4 space-y-4">
-              {/* ✅ Fixed Assignee Section */}
+              {/* Assignee Section */}
               <div className="flex items-center space-x-2">
                 <span className="font-semibold">Assignee:</span>
                 {isOwner ? (
@@ -910,7 +941,7 @@ const handleDragEnd = async (result) => {
                 )}
               </div>
 
-              {/* Due Date Section - Only editable by project owner */}
+              {/* Due Date Section */}
               <div className="flex items-center space-x-2">
                 <span className="font-semibold">Due Date:</span>
                 <input
@@ -930,7 +961,7 @@ const handleDragEnd = async (result) => {
                 />
               </div>
 
-              {/* Description Section - Only editable by project owner */}
+              {/* Description Section */}
               <div>
                 <span className="font-semibold">Description:</span>
                 <textarea

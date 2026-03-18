@@ -4,126 +4,80 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Task;
-use App\Models\Achievement;
 use App\Models\UserAchievement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class LeaderboardController extends Controller
 {
-    // For API calls
-    public function index()
-    {
-        $users = User::where('name', '!=', 'Test User') // Exclude Test User
-            ->withCount(['tasks as completed_tasks' => function ($query) {
-                $query->where('status', 'done');
-            }])
-            ->with(['tasks' => function ($query) {
-                $query->where('status', 'done')->with(['project']);
-            }])
-            ->get()
-            ->map(function ($user) {
-                $totalPoints = $this->calculateUserPoints($user);
-                $weeklyPoints = $this->calculateWeeklyPoints($user);
-                
-                return [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $user->role ?? 'Developer',
-                    'totalPoints' => $totalPoints,
-                    'weeklyPoints' => $weeklyPoints,
-                    'tasksCompleted' => $user->completed_tasks,
-                    'avatar' => $user->avatar,
-                ];
-            })
-            ->sortByDesc('totalPoints')
-            ->values()
-            ->toArray();
+   
+    private $pointRules = [
+        'tasks' => [
+            'high_priority_or_story' => 25,
+            'bug' => 15,
+            'regular' => 10,
+        ],
+        'bonus' => [
+            'early_completion' => 5,
+            'code_review' => 3,
+            'comments' => 1,
+            'review_given' => 3,
+        ]
+    ];
 
-        return response()->json($users);
-    }
-
-    public function userStats(Request $request)
+    public function showLeaderboard(Request $request)
     {
-        $user = Auth::user();
-        $totalPoints = $this->calculateUserPoints($user);
-        $weeklyPoints = $this->calculateWeeklyPoints($user);
+       
+        $period = $request->input('period', 'monthly');
+
+        $leaderboardData = $this->getLeaderboardData($period);
         
-        $rank = User::where('name', '!=', 'Test User') // Exclude Test User
-            ->withCount(['tasks as completed_tasks' => function ($query) {
-                $query->where('status', 'done');
-            }])
-            ->get()
-            ->map(function ($u) {
-                return [
-                    'id' => $u->id,
-                    'totalPoints' => $this->calculateUserPoints($u)
-                ];
-            })
-            ->sortByDesc('totalPoints')
-            ->values()
-            ->search(function ($item) use ($user) {
-                return $item['id'] === $user->id;
-            }) + 1;
-
-        $completedTasks = $user->tasks()->where('status', 'done')->count();
-        $avgPointsPerTask = $completedTasks > 0 ? round($totalPoints / $completedTasks, 1) : 0;
-        $achievements = $this->getUserAchievements($user);
-
-        return response()->json([
-            'totalPoints' => $totalPoints,
-            'weeklyPoints' => $weeklyPoints,
-            'rank' => $rank,
-            'tasksCompleted' => $completedTasks,
-            'avgPointsPerTask' => $avgPointsPerTask,
-            'achievements' => $achievements
-        ]);
-    }
-
-    // For Inertia page
-    public function showLeaderboard()
-    {
-        $leaderboardData = $this->getLeaderboardData();
-        $userStats = $this->getUserStatsData();
         
+        $userStats = $this->getUserStatsData($period, $leaderboardData);
+
         return inertia('Leaderboard', [
-            'topPerformers' => $this->formatTopPerformers($leaderboardData),
-            'pointSystem' => [
-                'taskCompletion' => [
-                    ['task' => 'Story Point', 'points' => '25 pts'],
-                    ['task' => 'Bug Fix', 'points' => '15 pts'],
-                    ['task' => 'Regular Task', 'points' => '10 pts'],
-                ],
-                'bonusPoints' => [
-                    ['task' => 'Early Completion', 'points' => '+5 pts'],
-                    ['task' => 'Code Review', 'points' => '+3 pts'],
-                    ['task' => 'Help Others', 'points' => '+2 pts'],
-                ]
-            ],
+            'period' => $period, 
+            'topPerformers' => $this->formatTopPerformers($leaderboardData, $period),
+            'pointSystem' => $this->getDynamicPointSystem(),
             'achievements' => $this->formatAchievements($userStats['achievements']),
             'userStats' => [
                 'totalPoints' => $userStats['totalPoints'],
-                'rank' => "#{$userStats['rank']}",
+                'rank' => $userStats['rank'] > 0 ? "#{$userStats['rank']}" : "#-",
                 'tasksCompleted' => $userStats['tasksCompleted'],
                 'avgPointsPerTask' => $userStats['avgPointsPerTask'],
             ]
         ]);
     }
 
-    private function getLeaderboardData()
+   
+    public function index(Request $request)
     {
-        $users = User::where('name', '!=', 'Test User') // Exclude Test User
-            ->withCount(['tasks as completed_tasks' => function ($query) {
+        $period = $request->input('period', 'monthly');
+        return response()->json($this->getLeaderboardData($period));
+    }
+
+    public function userStats(Request $request)
+    {
+        $period = $request->input('period', 'monthly');
+        $leaderboardData = $this->getLeaderboardData($period);
+        return response()->json($this->getUserStatsData($period, $leaderboardData));
+    }
+
+    private function getLeaderboardData($period)
+    {
+        $dates = $this->getDateRange($period);
+
+        return User::where('name', '!=', 'Test User')
+            ->with(['tasks' => function ($query) use ($dates) {
                 $query->where('status', 'done');
-            }])
-            ->with(['tasks' => function ($query) {
-                $query->where('status', 'done')->with(['project']);
+                if ($dates) {
+                    $query->whereBetween('updated_at', $dates);
+                }
             }])
             ->get()
-            ->map(function ($user) {
-                $totalPoints = $this->calculateUserPoints($user);
+            ->map(function ($user) use ($period) {
+                $totalPoints = $this->calculateUserPoints($user, clone $user->tasks);
                 $weeklyPoints = $this->calculateWeeklyPoints($user);
                 
                 return [
@@ -133,64 +87,101 @@ class LeaderboardController extends Controller
                     'role' => $user->role ?? 'Developer',
                     'totalPoints' => $totalPoints,
                     'weeklyPoints' => $weeklyPoints,
-                    'tasksCompleted' => $user->completed_tasks,
-                    'avatar' => $user->avatar,
+                    'tasksCompleted' => $user->tasks->count(),
+                    'avatar' => clone $user->avatar,
                 ];
             })
             ->sortByDesc('totalPoints')
             ->values()
             ->toArray();
-
-        return $users;
     }
 
-    private function getUserStatsData()
+    private function getUserStatsData($period, $leaderboardData)
     {
         $user = Auth::user();
         if (!$user) {
             return [
-                'totalPoints' => 0, 'weeklyPoints' => 0, 'rank' => 0,
+                'totalPoints' => 0, 'rank' => 0,
                 'tasksCompleted' => 0, 'avgPointsPerTask' => 0, 'achievements' => []
             ];
         }
 
-        $totalPoints = $this->calculateUserPoints($user);
-        $weeklyPoints = $this->calculateWeeklyPoints($user);
+        $rankIndex = collect($leaderboardData)->search(function ($item) use ($user) {
+            return $item['id'] === $user->id;
+        });
         
-        $rank = User::where('name', '!=', 'Test User') // Exclude Test User
-            ->withCount(['tasks as completed_tasks' => function ($query) {
-                $query->where('status', 'done');
-            }])
-            ->get()
-            ->map(function ($u) {
-                return [
-                    'id' => $u->id,
-                    'totalPoints' => $this->calculateUserPoints($u)
-                ];
-            })
-            ->sortByDesc('totalPoints')
-            ->values()
-            ->search(function ($item) use ($user) {
-                return $item['id'] === $user->id;
-            }) + 1;
+        $rank = $rankIndex !== false ? $rankIndex + 1 : 0;
 
-        $completedTasks = $user->tasks()->where('status', 'done')->count();
+        $userData = collect($leaderboardData)->firstWhere('id', $user->id);
+        
+        $totalPoints = $userData ? $userData['totalPoints'] : 0;
+        $completedTasks = $userData ? $userData['tasksCompleted'] : 0;
         $avgPointsPerTask = $completedTasks > 0 ? round($totalPoints / $completedTasks, 1) : 0;
-        $achievements = $this->getUserAchievements($user);
 
         return [
             'totalPoints' => $totalPoints,
-            'weeklyPoints' => $weeklyPoints,
             'rank' => $rank,
             'tasksCompleted' => $completedTasks,
             'avgPointsPerTask' => $avgPointsPerTask,
-            'achievements' => $achievements
+            'achievements' => $this->getUserAchievements($user)
         ];
     }
 
-    private function formatTopPerformers($leaderboardData)
+    private function calculateUserPoints($user, $completedTasks)
     {
-        return collect($leaderboardData)->map(function ($user, $index) {
+        $points = 0;
+        
+        foreach ($completedTasks as $task) {
+            if ($task->priority === 'high' || $task->type === 'story') {
+                $points += $this->pointRules['tasks']['high_priority_or_story'];
+            } elseif ($task->type === 'bug') {
+                $points += $this->pointRules['tasks']['bug'];
+            } else {
+                $points += $this->pointRules['tasks']['regular'];
+            }
+
+            if ($task->completed_at && $task->due_date) {
+                if (new \DateTime($task->completed_at) < new \DateTime($task->due_date)) {
+                    $points += $this->pointRules['bonus']['early_completion'];
+                }
+            }
+
+            if ($task->reviews()->count() > 0) {
+                $points += $this->pointRules['bonus']['code_review'];
+            }
+        }
+
+        $points += $user->comments()->count() * $this->pointRules['bonus']['comments'];
+        $points += $user->reviews()->count() * $this->pointRules['bonus']['review_given'];
+
+        return $points;
+    }
+
+    private function calculateWeeklyPoints($user)
+    {
+        $dates = $this->getDateRange('weekly');
+        $weeklyTasks = clone $user->tasks()
+            ->where('status', 'done')
+            ->whereBetween('updated_at', $dates)
+            ->get();
+            
+        return $this->calculateUserPoints($user, clone $weeklyTasks);
+    }
+
+    private function getDateRange($period)
+    {
+        return match($period) {
+            'weekly' => [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()],
+            'monthly' => [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()],
+            default => null, 
+        };
+    }
+
+    private function formatTopPerformers($leaderboardData, $period)
+    {
+        return collect($leaderboardData)->map(function ($user, $index) use ($period) {
+            $changeText = $period === 'weekly' ? 'this week' : ($period === 'monthly' ? 'this month' : 'total');
+
             return [
                 'id' => $user['id'],
                 'rank' => $index + 1,
@@ -198,94 +189,26 @@ class LeaderboardController extends Controller
                 'role' => $user['role'],
                 'avatar' => $user['avatar'],
                 'points' => $user['totalPoints'],
-                'weeklyChange' => $user['weeklyPoints'] > 0 ? "+{$user['weeklyPoints']} this week" : "+0 this week",
+                'weeklyChange' => $user['weeklyPoints'] > 0 ? "+{$user['weeklyPoints']} {$changeText}" : "+0 {$changeText}",
                 'isCurrentUser' => auth()->check() && $user['id'] === auth()->id(),
             ];
         })->toArray();
     }
 
-    private function formatAchievements($achievements)
+    private function getDynamicPointSystem()
     {
-        return collect($achievements)->map(function ($achievement) {
-            return [
-                'title' => $achievement['name'],
-                'description' => $achievement['description'],
-                'icon' => $this->getAchievementIcon($achievement['name']),
-                'earned' => $achievement['earned'],
-                'progress' => $achievement['progress'],
-                'earned_at' => $achievement['earned_at'] ?? null
-            ];
-        })->toArray();
-    }
-
-    private function getAchievementIcon($achievementName)
-    {
-        $icons = [
-            'Speed Demon' => '💨',
-            'Code Reviewer' => '👀',
-            'Bug Hunter' => '🐛',
-            'Team Player' => '🤝',
+        return [
+            'taskCompletion' => [
+                ['task' => 'Story / High Priority', 'points' => "{$this->pointRules['tasks']['high_priority_or_story']} pts"],
+                ['task' => 'Bug Fix', 'points' => "{$this->pointRules['tasks']['bug']} pts"],
+                ['task' => 'Regular Task', 'points' => "{$this->pointRules['tasks']['regular']} pts"],
+            ],
+            'bonusPoints' => [
+                ['task' => 'Early Completion', 'points' => "+{$this->pointRules['bonus']['early_completion']} pts"],
+                ['task' => 'Code Review', 'points' => "+{$this->pointRules['bonus']['code_review']} pts"],
+                ['task' => 'Help Others / Comments', 'points' => "+{$this->pointRules['bonus']['comments']} pts"],
+            ]
         ];
-        
-        return $icons[$achievementName] ?? '🏆';
-    }
-
-    private function calculateUserPoints($user)
-    {
-        $points = 0;
-        $completedTasks = $user->tasks()->where('status', 'done')->get();
-        
-        foreach ($completedTasks as $task) {
-            if ($task->priority === 'high' || $task->type === 'story') {
-                $points += 25;
-            } elseif ($task->type === 'bug') {
-                $points += 15;
-            } else {
-                $points += 10;
-            }
-
-            if ($task->completed_at && $task->due_date) {
-                $completedDate = new \DateTime($task->completed_at);
-                $dueDate = new \DateTime($task->due_date);
-                
-                if ($completedDate < $dueDate) {
-                    $points += 5;
-                }
-            }
-
-            if ($task->reviews()->count() > 0) {
-                $points += 3;
-            }
-        }
-
-        $points += $user->comments()->count();
-        $points += $user->reviews()->count() * 3;
-
-        return $points;
-    }
-
-    private function calculateWeeklyPoints($user)
-    {
-        $startOfWeek = now()->startOfWeek();
-        $endOfWeek = now()->endOfWeek();
-        
-        $weeklyTasks = $user->tasks()
-            ->where('status', 'done')
-            ->whereBetween('updated_at', [$startOfWeek, $endOfWeek])
-            ->get();
-            
-        $points = 0;
-        foreach ($weeklyTasks as $task) {
-            if ($task->priority === 'high' || $task->type === 'story') {
-                $points += 25;
-            } elseif ($task->type === 'bug') {
-                $points += 15;
-            } else {
-                $points += 10;
-            }
-        }
-
-        return $points;
     }
 
     private function getUserAchievements($user)
@@ -359,5 +282,31 @@ class LeaderboardController extends Controller
         }
 
         return $achievements;
+    }
+
+    private function formatAchievements($achievements)
+    {
+        return collect($achievements)->map(function ($achievement) {
+            return [
+                'title' => $achievement['name'],
+                'description' => $achievement['description'],
+                'icon' => $this->getAchievementIcon($achievement['name']),
+                'earned' => $achievement['earned'],
+                'progress' => $achievement['progress'],
+                'earned_at' => $achievement['earned_at'] ?? null
+            ];
+        })->toArray();
+    }
+
+    private function getAchievementIcon($achievementName)
+    {
+        $icons = [
+            'Speed Demon' => '⚡',
+            'Code Reviewer' => '👀',
+            'Bug Hunter' => '🐛',
+            'Team Player' => '🤝',
+        ];
+        
+        return $icons[$achievementName] ?? '🏆';
     }
 }

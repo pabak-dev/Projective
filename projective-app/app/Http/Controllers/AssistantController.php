@@ -11,16 +11,13 @@ use Illuminate\Support\Facades\Gate;
 
 class AssistantController extends Controller
 {
-    // Mask sensitive data (emails, phone numbers, etc.) before sending to Gemini
+
     private function maskSensitiveData($text) {
-        // Mask emails
         $text = preg_replace('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/', '[email]', $text);
-        // Mask phone numbers (simple pattern: 10+ digits)
         $text = preg_replace('/\\b\\d{10,}\\b/', '[phone]', $text);
-        // You can add more masking rules here (names, addresses, etc.)
         return $text;
     }
-    public function query(Request $request)
+public function query(Request $request)
     {
         $request->validate([
             'prompt' => 'required|string',
@@ -30,83 +27,93 @@ class AssistantController extends Controller
         $prompt = $request->input('prompt');
         $boardData = $request->input('boardData');
 
-        // Combine board data with prompt if provided
-        if ($boardData) {
-            $combinedPrompt = "Here is the board/page data for context:\n" . $boardData . "\nUser question: " . $prompt;
+      
+        $user = Auth::user();
+        $dbTasksContext = "";
+
+        if ($user) {
+            
+            $tasks = \App\Models\Task::with('project')
+                        ->where('assignee_id', $user->id) 
+                        ->whereIn('status', ['in progress', 'In Progress', 'in_progress', 'doing']) 
+                        ->get();
+
+            if ($tasks->count() > 0) {
+                $dbTasksContext = "Here is the list of tasks currently 'in progress' assigned to the user:\n";
+                foreach ($tasks as $task) {
+                    $projectName = $task->project ? $task->project->name : 'Independent Task';
+                    $dueDate = $task->due_date ? $task->due_date->format('Y-m-d') : 'No specific due date';
+                    
+                    $dbTasksContext .= "- Task Title: {$task->title}\n";
+                    $dbTasksContext .= "  Project: {$projectName}\n";
+                    $dbTasksContext .= "  Status: {$task->status}\n";
+                    $dbTasksContext .= "  Due Date: {$dueDate}\n";
+                    $dbTasksContext .= "  Description: {$task->description}\n\n";
+                }
+            } else {
+                $dbTasksContext = "The user currently has no tasks in progress.\n";
+            }
         } else {
-            $combinedPrompt = $prompt;
+            $dbTasksContext = "User is not authenticated. Cannot fetch database tasks.\n";
         }
 
+        $combinedPrompt = "You are a helpful project management assistant for this system. Use the following context to answer the user's question accurately.\n\n" .
+                          "System/Board Context:\n" . $boardData . "\n\n" . 
+                          "User's Database Context:\n" . $dbTasksContext . "\n\n" . 
+                          "User Question: " . $prompt;
+
         $maskedPrompt = $this->maskSensitiveData($combinedPrompt);
-        $aiResponse = $this->callGeminiApi($maskedPrompt);
+        
+     
+        $aiResponse = $this->callGroqApi($maskedPrompt);
 
         return response()->json([
             'answer' => $aiResponse,
         ]);
     }
 
-    // Removed project/user context methods for simplicity
-
-    private function callGeminiApi($prompt)
+    
+    private function callGroqApi($prompt)
     {
-        $apiKey = env('GEMINI_API_KEY');
-        if (!$apiKey) {
-            return [
-                'error' => true,
-                'message' => 'AI service is not configured. Please contact your administrator.'
-            ];
-        }
+        
+        $apiKey =env("GROK_API_KEY"); 
 
-    // Use the gemini-1.5-flash model
-    $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}";
+        $url = "https://api.groq.com/openai/v1/chat/completions";
 
         try {
-            $response = Http::timeout(30)->withOptions([
-                'verify' => false, // Disable SSL verification for development
-            ])->post($url, [
-                'contents' => [
-                    [
-                        'parts' => [
-                            ['text' => $prompt]
+            $response = Http::withToken($apiKey) 
+                ->timeout(30)
+                ->withOptions([
+                    'verify' => false, 
+                ])->post($url, [
+                    "model" => "llama-3.1-8b-instant",
+                    "messages" => [
+                        [
+                            "role" => "system",
+                            "content" => "You are a helpful project management assistant."
+                        ],
+                        [
+                            "role" => "user",
+                            "content" => $prompt
                         ]
-                    ]
-                ],
-                'generationConfig' => [
-                    'temperature' => 0.3,
-                    'topP' => 0.8,
-                    'maxOutputTokens' => 1000,
-                ]
-            ]);
+                    ],
+                    "temperature" => 0.3,
+                    "max_tokens" => 1000,
+                ]);
 
             if ($response->failed()) {
-                Log::error('Gemini API failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body()
-                ]);
-                return [
-                    'error' => true,
-                    'message' => 'AI service unavailable',
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                    'url' => $url,
-                    'model' => 'gemini-1.0-pro',
-                    'apiKeyStartsWith' => substr($apiKey, 0, 8)
-                ];
+               
+                return "Groq Error Details: " . $response->body();
             }
 
             $responseData = $response->json();
-            return $responseData['candidates'][0]['content']['parts'][0]['text'] ?? [
-                'error' => true,
-                'message' => 'No response from Gemini API',
-                'raw' => $responseData
-            ];
+            
+            
+            return $responseData["choices"][0]["message"]["content"] ?? "No response generated.";
+
         } catch (\Exception $e) {
-            Log::error('GeminiService error: ' . $e->getMessage());
-            return [
-                'error' => true,
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ];
+            Log::error('Groq API error: ' . $e->getMessage());
+            return "Error: " . $e->getMessage();
         }
     }
 }
